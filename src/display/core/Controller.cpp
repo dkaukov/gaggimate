@@ -30,6 +30,8 @@
 #ifndef GAGGIMATE_HEADLESS
 #include <display/drivers/AmoledDisplayDriver.h>
 #include <display/drivers/LilyGoDriver.h>
+#include <display/drivers/Sunton43Driver.h>
+#include <display/drivers/SuntonDriver.h>
 #include <display/drivers/WaveshareDriver.h>
 #endif
 
@@ -129,6 +131,13 @@ void Controller::connect() {
 
 #ifndef GAGGIMATE_HEADLESS
 void Controller::setupPanel() {
+#ifdef SUNTON5_DISPLAY
+    // Sunton ESP32-S3 5" 800x480 display selected via build flag
+    driver = SuntonDriver::getInstance();
+#elif defined(SUNTON43_DISPLAY)
+    // Sunton ESP32-S3 4.3" 800x480 display selected via build flag
+    driver = Sunton43Driver::getInstance();
+#else
     if (LilyGoDriver::getInstance()->isCompatible()) {
         driver = LilyGoDriver::getInstance();
     } else if (AmoledDisplayDriver::getInstance()->isCompatible()) {
@@ -140,6 +149,7 @@ void Controller::setupPanel() {
         delay(10000);
         ESP.restart();
     }
+#endif
     driver->init();
 }
 #endif
