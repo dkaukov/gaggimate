@@ -1,0 +1,8 @@
+{
+    "name": "CommInterface",
+    "version": "1.0.0",
+    "description": "Communication interface abstraction for GaggiMate controllers",
+    "keywords": ["communication", "serial", "ble", "gaggimate"],
+    "frameworks": "arduino",
+    "platforms": ["espressif32", "ststm32"]
+}
