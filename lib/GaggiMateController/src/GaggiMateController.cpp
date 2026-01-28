@@ -1,11 +1,10 @@
 #include "GaggiMateController.h"
 #include "utilities.h"
 #include <Arduino.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <peripherals/SimplePump.h>
 #include <platform/Logger.h>
 #include <platform/System.h>
+#include <platform/Threading.h>
 
 #include <utility>
 

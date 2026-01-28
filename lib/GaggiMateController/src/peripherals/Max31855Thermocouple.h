@@ -3,8 +3,7 @@
 
 #include "TemperatureSensor.h"
 #include <MAX31855.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include <platform/Threading.h>
 
 constexpr int MAX31855_UPDATE_INTERVAL = 250;
 constexpr int MAX31855_ERROR_WINDOW = 20;

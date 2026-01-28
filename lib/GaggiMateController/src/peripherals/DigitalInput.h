@@ -2,6 +2,7 @@
 #define DIGITALINPUT_H
 
 #include <Arduino.h>
+#include <platform/Threading.h>
 
 constexpr int INPUT_CHECK_INTERVAL_MS = 100;
 

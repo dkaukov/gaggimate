@@ -13,7 +13,7 @@ SimplePID::SimplePID(float *controlerOutputPtr, float *sensorOutputPtr, float *s
 }
 
 bool SimplePID::update() {
-    if (mode == Control::manual) {
+    if (mode == PIDControl::manual) {
         return false;
     }
     uint32_t now = millis();
@@ -155,16 +155,16 @@ void SimplePID::setCtrlOutputLimits(float minOutput, float maxOutput) {
     ctrlOutputLimits[1] = maxOutput;
 }
 
-void SimplePID::setMode(Control modeCMD) {
-    if (modeCMD == Control::automatic && this->mode == Control::manual) {
+void SimplePID::setMode(PIDControl modeCMD) {
+    if (modeCMD == PIDControl::automatic && this->mode == PIDControl::manual) {
         isInitialized = false; // Reset the controller when switching to automatic mode
     }
     this->mode = modeCMD;
 }
 
 void SimplePID::setManualOutput(float output) {
-    if (this->mode == Control::automatic)
-        setMode(Control::manual);
+    if (this->mode == PIDControl::automatic)
+        setMode(PIDControl::manual);
     manualOutput = output;
 }
 

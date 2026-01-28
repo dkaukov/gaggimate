@@ -1,5 +1,7 @@
 #ifndef SIMPLE_PID_H
 #define SIMPLE_PID_H
+
+#include <cstdint>
 #include <cmath>
 #include <deque>
 #include <vector>
@@ -27,8 +29,8 @@ class SimplePID {
     void computeSetpointDelay(float systemDelay);
     void activateFeedForward(bool flag);
 
-    enum class Control : uint8_t { manual, automatic }; // controller mode
-    void setMode(Control mode);
+    enum class PIDControl : uint8_t { manual, automatic }; // controller mode
+    void setMode(PIDControl mode);
 
     float getCtrlSamplingFrequency() { return ctrl_freq_sampling; };
     float getKp() { return gainKp; };
@@ -80,7 +82,7 @@ class SimplePID {
     float feedback_integralState = 0.0f; // Integral state
     float prevError = 0.0f;              // Previous error for derivative calculation
     float prevOutput = 0.0f;             // Previous output for derivative calculation
-    Control mode = Control::manual;
+    PIDControl mode = PIDControl::manual;
     float manualOutput = 0.0f;
     unsigned long lastTime = 0;
 

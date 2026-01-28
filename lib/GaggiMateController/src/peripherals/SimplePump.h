@@ -3,6 +3,7 @@
 
 #include "Pump.h"
 #include <Arduino.h>
+#include <platform/Threading.h>
 
 class SimplePump : public Pump {
   public:

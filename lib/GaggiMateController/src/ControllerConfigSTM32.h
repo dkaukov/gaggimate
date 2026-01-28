@@ -1,6 +1,7 @@
 #ifndef CONTROLLERCONFIGSTM32_H
 #define CONTROLLERCONFIGSTM32_H
 
+#include <Arduino.h>
 #include "ControllerConfig.h"
 
 /**

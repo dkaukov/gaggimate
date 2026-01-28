@@ -1,7 +1,18 @@
 #include "PressureSensor.h"
 #include "Wire.h"
+#include <algorithm>
 #include <platform/Logger.h>
 #include <platform/Threading.h>
+
+// Compatibility: std::clamp requires C++17
+#if __cplusplus < 201703L
+namespace std {
+template <typename T>
+constexpr const T &clamp(const T &v, const T &lo, const T &hi) {
+    return (v < lo) ? lo : (hi < v) ? hi : v;
+}
+} // namespace std
+#endif
 
 PressureSensor::PressureSensor(uint8_t sda_pin, uint8_t scl_pin, const pressure_callback_t &callback, float pressure_scale,
                                float voltage_floor, float voltage_ceil)
@@ -12,10 +23,20 @@ PressureSensor::PressureSensor(uint8_t sda_pin, uint8_t scl_pin, const pressure_
 }
 
 void PressureSensor::setup() {
+#ifdef ESP32
     Wire1.begin(_sda_pin, _scl_pin);
     LOG_V(LOG_TAG, "Initializing pressure sensor on SDA: %d, SCL: %d", _sda_pin, _scl_pin);
     delay(100);
     ads = new ADS1115(0x48, &Wire1);
+#else
+    // STM32 uses Wire with setPins
+    Wire.setSDA(_sda_pin);
+    Wire.setSCL(_scl_pin);
+    Wire.begin();
+    LOG_V(LOG_TAG, "Initializing pressure sensor on SDA: %d, SCL: %d", _sda_pin, _scl_pin);
+    delay(100);
+    ads = new ADS1115(0x48, &Wire);
+#endif
     if (!ads->begin()) {
         LOG_E(LOG_TAG, "Failed to initialize ADS1115");
     }

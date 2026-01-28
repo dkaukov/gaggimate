@@ -4,15 +4,53 @@
 /**
  * @brief Cross-platform threading abstraction
  *
- * Both ESP32 and STM32 support FreeRTOS, so we use FreeRTOS directly.
- * This header provides convenience macros and compatibility definitions.
+ * On ESP32, FreeRTOS is built-in. On STM32 with Arduino, FreeRTOS
+ * may not be available, so we provide fallback definitions.
  */
 
 #include <Arduino.h>
 
-// FreeRTOS is available on both ESP32 and STM32 (with Arduino)
+#ifdef ESP32
+// ESP32 has FreeRTOS built-in
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#else
+// STM32 Arduino - provide compatibility types
+// Note: Full FreeRTOS support requires adding STM32FreeRTOS library
+typedef void *TaskHandle_t;
+typedef void *xTaskHandle;
+
+// Provide stub definitions for non-FreeRTOS builds
+#ifndef pdMS_TO_TICKS
+#define pdMS_TO_TICKS(ms) (ms)
+#endif
+
+#ifndef pdPASS
+#define pdPASS 1
+#endif
+
+#ifndef pdFAIL
+#define pdFAIL 0
+#endif
+
+#ifndef configMINIMAL_STACK_SIZE
+#define configMINIMAL_STACK_SIZE 128
+#endif
+
+// Simple loop-based "task" for STM32 without FreeRTOS
+// Tasks should be called from main loop instead
+#define xTaskCreate(func, name, stack, param, prio, handle) pdPASS
+#define vTaskDelay(ticks) delay(ticks)
+#define xTaskGetTickCount() millis()
+#define xTaskDelayUntil(lastWake, ticks) do { delay(ticks); *(lastWake) = millis(); } while(0)
+
+typedef unsigned long TickType_t;
+
+#ifndef portTICK_PERIOD_MS
+#define portTICK_PERIOD_MS 1
+#endif
+
+#endif // ESP32
 
 /**
  * @brief Create a FreeRTOS task

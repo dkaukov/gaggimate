@@ -3,6 +3,16 @@
 #include <algorithm>
 #include <math.h>
 
+// Compatibility: std::clamp requires C++17
+#if __cplusplus < 201703L
+namespace std {
+template <typename T>
+constexpr const T &clamp(const T &v, const T &lo, const T &hi) {
+    return (v < lo) ? lo : (hi < v) ? hi : v;
+}
+} // namespace std
+#endif
+
 // Helper function to return the sign of a float
 inline float sign(float x) { return (x > 0.0f) - (x < 0.0f); }
 
@@ -270,5 +280,5 @@ void PressureController::reset() {
     _puckState[1] = false;
     _puckState[2] = false;
     _puckCounter = 0;
-    ESP_LOGI("", "RESET");
+    // Reset complete
 }

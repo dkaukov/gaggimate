@@ -3,6 +3,7 @@
 
 #include <ADS1X15.h>
 #include <Arduino.h>
+#include <platform/Threading.h>
 
 constexpr int PRESSURE_READ_INTERVAL_MS = 30;
 constexpr float ADC_STEP = 6.144f / 32767.0f;

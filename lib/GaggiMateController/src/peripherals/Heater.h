@@ -4,8 +4,7 @@
 #include "Max31855Thermocouple.h"
 #include "TemperatureSensor.h"
 #include <SimplePID/SimplePID.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include <platform/Threading.h>
 
 enum class PIDLibrary { Legacy, Nimrod };
 

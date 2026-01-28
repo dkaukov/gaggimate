@@ -1,5 +1,7 @@
 #ifndef DIMMEDPUMP_H
 #define DIMMEDPUMP_H
+
+#ifdef ESP32
 #include "PSM.h"
 #include "PressureController/PressureController.h"
 #include "PressureSensor.h"
@@ -65,4 +67,5 @@ class DimmedPump : public Pump {
     static void loopTask(void *arg);
 };
 
+#endif // ESP32
 #endif // DIMMEDPUMP_H

@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <VL53L0X.h>
 #include <Wire.h>
+#include <platform/Threading.h>
 
 using distance_callback_t = std::function<void(int)>;
 

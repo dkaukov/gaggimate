@@ -42,13 +42,13 @@ void Heater::loop() {
     }
 
     if (sensor->isErrorState() || setpoint <= 0.0f) {
-        simplePid->setMode(SimplePID::Control::manual);
+        simplePid->setMode(SimplePID::PIDControl::manual);
         digitalWrite(heaterPin, LOW);
         relayStatus = false;
         temperature = sensor->read();
         return;
     }
-    simplePid->setMode(SimplePID::Control::automatic);
+    simplePid->setMode(SimplePID::PIDControl::automatic);
 
     loopPid();
 }
@@ -127,7 +127,7 @@ void Heater::loopPid() {
 }
 
 void Heater::loopAutotune() {
-    simplePid->setMode(SimplePID::Control::manual);
+    simplePid->setMode(SimplePID::PIDControl::manual);
     autotuner->reset();
     long microseconds;
     long loopInterval = (static_cast<long>(TUNER_OUTPUT_SPAN) - 1L) * 1000L;

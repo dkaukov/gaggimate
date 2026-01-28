@@ -1,5 +1,6 @@
 #include "DimmedPump.h"
 
+#ifdef ESP32
 #include <GaggiMateController.h>
 #include <platform/Logger.h>
 #include <platform/Threading.h>
@@ -90,3 +91,4 @@ void DimmedPump::setPumpFlowCoeff(float oneBarFlow, float nineBarFlow) {
 void DimmedPump::setPumpFlowPolyCoeffs(float a, float b, float c, float d) {
     _pressureController.setPumpFlowPolyCoeffs(a, b, c, d);
 }
+#endif // ESP32
