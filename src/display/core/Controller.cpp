@@ -22,6 +22,11 @@
 #include <display/plugins/SmartGrindPlugin.h>
 #include <display/plugins/WebUIPlugin.h>
 #include <display/plugins/mDNSPlugin.h>
+
+// Communication implementations
+#include <BLECommClient.h>
+#include <SerialCommClient.h>
+
 #ifndef GAGGIMATE_HEADLESS
 #include <display/drivers/AmoledDisplayDriver.h>
 #include <display/drivers/LilyGoDriver.h>
@@ -29,6 +34,13 @@
 #endif
 
 const String LOG_TAG = F("Controller");
+
+Controller::~Controller() {
+    if (ownCommClient && commClient) {
+        delete commClient;
+        commClient = nullptr;
+    }
+}
 
 void Controller::setup() {
     mode = settings.getStartupMode();
@@ -107,7 +119,7 @@ void Controller::connect() {
     pluginManager->trigger("controller:startup");
 
     setupWifi();
-    setupBluetooth();
+    setupCommunication();
     pluginManager->on("ota:update:start", [this](Event const &) { this->updating = true; });
     pluginManager->on("ota:update:end", [this](Event const &) { this->updating = false; });
 
@@ -132,9 +144,36 @@ void Controller::setupPanel() {
 }
 #endif
 
-void Controller::setupBluetooth() {
-    clientController.initClient();
-    clientController.registerSensorCallback(
+void Controller::setupCommunication() {
+    // Create communication client based on settings
+    if (settings.getCommMode() == COMM_MODE_SERIAL) {
+        // Serial communication mode
+        ESP_LOGI(LOG_TAG, "Using Serial communication mode");
+        int rxPin = settings.getSerialRxPin();
+        int txPin = settings.getSerialTxPin();
+        int baudRate = settings.getSerialBaudRate();
+
+        // Use Serial1 for communication (configurable pins)
+        commClient = new SerialCommClient(Serial1, baudRate, rxPin, txPin);
+        ownCommClient = true;
+    } else {
+        // BLE communication mode (default)
+        ESP_LOGI(LOG_TAG, "Using BLE communication mode");
+        commClient = new BLECommClient();
+        ownCommClient = true;
+    }
+
+    // Initialize the communication client
+    commClient->init();
+
+    // Register callbacks
+    registerCommCallbacks();
+
+    pluginManager->trigger("controller:bluetooth:init");
+}
+
+void Controller::registerCommCallbacks() {
+    commClient->registerSensorCallback(
         [this](const float temp, const float pressure, const float puckFlow, const float pumpFlow, const float puckResistance) {
             onTempRead(temp);
             this->pressure = pressure;
@@ -145,10 +184,10 @@ void Controller::setupBluetooth() {
             pluginManager->trigger("pump:flow:change", "value", pumpFlow);
             pluginManager->trigger("pump:puck-resistance:change", "value", puckResistance);
         });
-    clientController.registerBrewBtnCallback([this](const int brewButtonStatus) { handleBrewButton(brewButtonStatus); });
-    clientController.registerSteamBtnCallback([this](const int steamButtonStatus) { handleSteamButton(steamButtonStatus); });
-    clientController.registerRemoteErrorCallback([this](const int error) {
-        if (error != ERROR_CODE_TIMEOUT && error != this->error) {
+    commClient->registerBrewBtnCallback([this](const int brewButtonStatus) { handleBrewButton(brewButtonStatus); });
+    commClient->registerSteamBtnCallback([this](const int steamButtonStatus) { handleSteamButton(steamButtonStatus); });
+    commClient->registerRemoteErrorCallback([this](const int error) {
+        if (error != COMM_ERROR_CODE_TIMEOUT && error != this->error) {
             this->error = error;
             deactivate();
             setMode(MODE_STANDBY);
@@ -156,7 +195,7 @@ void Controller::setupBluetooth() {
             ESP_LOGE(LOG_TAG, "Received error %d", error);
         }
     });
-    clientController.registerAutotuneResultCallback([this](const float Kp, const float Ki, const float Kd, const float Kf) {
+    commClient->registerAutotuneResultCallback([this](const float Kp, const float Ki, const float Kd, const float Kf) {
         ESP_LOGI(LOG_TAG, "Received autotune values: Kp=%.3f, Ki=%.3f, Kd=%.3f, Kf=%.3f (combined)", Kp, Ki, Kd, Kf);
         char pid[64];
         // Store in simplified format with combined Kf
@@ -165,18 +204,17 @@ void Controller::setupBluetooth() {
         pluginManager->trigger("controller:autotune:result");
         autotuning = false;
     });
-    clientController.registerVolumetricMeasurementCallback(
+    commClient->registerVolumetricMeasurementCallback(
         [this](const float value) { onVolumetricMeasurement(value, VolumetricMeasurementSource::FLOW_ESTIMATION); });
-    clientController.registerTofMeasurementCallback([this](const int value) {
+    commClient->registerTofMeasurementCallback([this](const int value) {
         tofDistance = value;
         ESP_LOGV(LOG_TAG, "Received new TOF distance: %d", value);
         pluginManager->trigger("controller:tof:change", "value", value);
     });
-    pluginManager->trigger("controller:bluetooth:init");
 }
 
 void Controller::setupInfos() {
-    const std::string info = clientController.readInfo();
+    const String info = commClient->readInfo();
     printf("System info: %s\n", info.c_str());
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, info);
@@ -257,8 +295,13 @@ void Controller::loop() {
         connect();
     }
 
-    if (clientController.isReadyForConnection()) {
-        clientController.connectToServer();
+    // Process communication (important for serial mode)
+    if (commClient) {
+        commClient->loop();
+    }
+
+    if (commClient->isReadyForConnection()) {
+        commClient->connect();
         setupInfos();
         pluginManager->trigger("controller:bluetooth:connect");
         if (!loaded) {
@@ -268,8 +311,8 @@ void Controller::loop() {
 
             ESP_LOGI(LOG_TAG, "setting pressure scale to %.2f\n", settings.getPressureScaling());
             setPressureScale();
-            clientController.sendPidSettings(settings.getPid());
-            clientController.sendPumpModelCoeffs(settings.getPumpModelCoeffs());
+            commClient->sendPidSettings(settings.getPid());
+            commClient->sendPumpModelCoeffs(settings.getPumpModelCoeffs());
 
             pluginManager->trigger("controller:ready");
         }
@@ -280,7 +323,7 @@ void Controller::loop() {
     // Disable ping as we send output control frequently
     // if (now - lastPing > PING_INTERVAL) {
     //     lastPing = now;
-    //     clientController.sendPing();
+    //     commClient->sendPing();
     // }
 
     if (isErrorState()) {
@@ -363,7 +406,7 @@ void Controller::autotune(int testTime, int samples) {
         activateStandby();
     }
     autotuning = true;
-    clientController.sendAutotune(testTime, samples);
+    commClient->sendAutotune(testTime, samples);
     pluginManager->trigger("controller:autotune:start");
 }
 
@@ -414,13 +457,13 @@ void Controller::setTargetTemp(float temperature) {
 
 void Controller::setPressureScale(void) {
     if (systemInfo.capabilities.pressure) {
-        clientController.setPressureScale(settings.getPressureScaling());
+        commClient->setPressureScale(settings.getPressureScaling());
     }
 }
 
 void Controller::setPumpModelCoeffs(void) {
     if (systemInfo.capabilities.dimming) {
-        clientController.sendPumpModelCoeffs(settings.getPumpModelCoeffs());
+        commClient->sendPumpModelCoeffs(settings.getPumpModelCoeffs());
     }
 }
 
@@ -514,20 +557,20 @@ void Controller::updateControl() {
         }
     }
 
-    clientController.sendAltControl(altRelayActive);
+    commClient->sendAltControl(altRelayActive);
     if (isActive() && systemInfo.capabilities.pressure) {
         if (currentProcess->getType() == MODE_STEAM) {
             targetPressure = settings.getSteamPumpCutoff();
             targetFlow = currentProcess->getPumpValue() * 0.1f;
-            clientController.sendAdvancedOutputControl(false, targetTemp, false, targetPressure, targetFlow);
+            commClient->sendAdvancedOutputControl(false, targetTemp, false, targetPressure, targetFlow);
             return;
         }
         if (currentProcess->getType() == MODE_BREW) {
             auto *brewProcess = static_cast<BrewProcess *>(currentProcess);
             if (brewProcess->isAdvancedPump()) {
-                clientController.sendAdvancedOutputControl(brewProcess->isRelayActive(), targetTemp,
-                                                           brewProcess->getPumpTarget() == PumpTarget::PUMP_TARGET_PRESSURE,
-                                                           brewProcess->getPumpPressure(), brewProcess->getPumpFlow());
+                commClient->sendAdvancedOutputControl(brewProcess->isRelayActive(), targetTemp,
+                                                       brewProcess->getPumpTarget() == PumpTarget::PUMP_TARGET_PRESSURE,
+                                                       brewProcess->getPumpPressure(), brewProcess->getPumpFlow());
                 targetPressure = brewProcess->getPumpPressure();
                 targetFlow = brewProcess->getPumpFlow();
                 return;
@@ -536,7 +579,7 @@ void Controller::updateControl() {
     }
     targetPressure = 0.0f;
     targetFlow = 0.0f;
-    clientController.sendOutputControl(isActive() && currentProcess->isRelayActive(),
+    commClient->sendOutputControl(isActive() && currentProcess->isRelayActive(),
                                        isActive() ? currentProcess->getPumpValue() : 0, targetTemp);
 }
 
@@ -544,7 +587,7 @@ void Controller::activate() {
     if (isActive())
         return;
     clear();
-    clientController.tare();
+    commClient->tare();
     if (isVolumetricAvailable()) {
 #ifdef NIGHTLY_BUILD
         currentVolumetricSource =
@@ -769,6 +812,16 @@ void Controller::handleProfileUpdate() {
     pluginManager->trigger("boiler:targetTemperature:change", "value", profileManager->getSelectedProfile().temperature);
     pluginManager->trigger("controller:targetDuration:change", "value", profileManager->getSelectedProfile().getTotalDuration());
     pluginManager->trigger("controller:targetVolume:change", "value", profileManager->getSelectedProfile().getTotalVolume());
+}
+
+NimBLEClientController *Controller::getClientController() {
+    // For backward compatibility, return the BLE controller if using BLE mode
+    if (settings.getCommMode() == COMM_MODE_BLE && commClient) {
+        // Use static_cast since we know the type based on commMode
+        auto *bleClient = static_cast<BLECommClient *>(commClient);
+        return bleClient->getBLEController();
+    }
+    return nullptr;
 }
 
 void Controller::loopTask(void *arg) {

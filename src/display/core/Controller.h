@@ -1,8 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#include "NimBLEClientController.h"
-#include "NimBLEComm.h"
+#include "CommInterface.h"
 #include "PluginManager.h"
 #include "Settings.h"
 #include <WiFi.h>
@@ -13,6 +12,9 @@
 #include <display/ui/default/DefaultUI.h>
 #endif
 
+// Include BLE-specific headers for getClientController() backward compatibility
+#include "BLECommClient.h"
+
 const IPAddress WIFI_AP_IP(4, 4, 4, 1); // the IP address the web server, Samsung requires the IP to be in public space
 const IPAddress WIFI_SUBNET_MASK(255, 255, 255, 0); // no need to change: https://avinetworks.com/glossary/subnet-mask/
 
@@ -21,6 +23,7 @@ enum class VolumetricMeasurementSource { INACTIVE, FLOW_ESTIMATION, BLUETOOTH };
 class Controller {
   public:
     Controller() = default;
+    ~Controller();
 
     void setup();
     void connect();
@@ -99,16 +102,28 @@ class Controller {
 
     SystemInfo getSystemInfo() const { return systemInfo; }
 
-    NimBLEClientController *getClientController() { return &clientController; }
+    /**
+     * @brief Get the communication client
+     * @return Pointer to ICommClient interface
+     */
+    ICommClient *getCommClient() { return commClient; }
+
+    /**
+     * @brief Get the BLE client controller (for backward compatibility)
+     * @return Pointer to NimBLEClientController if using BLE, nullptr otherwise
+     * @deprecated Use getCommClient() for new code
+     */
+    NimBLEClientController *getClientController();
 
   private:
     // Initialization methods
 #ifndef GAGGIMATE_HEADLESS
     void setupPanel();
 #endif
-    void setupBluetooth();
+    void setupCommunication();
     void setupInfos();
     void setupWifi();
+    void registerCommCallbacks();
 
     // Functional methods
     void updateControl();
@@ -128,7 +143,8 @@ class Controller {
     DefaultUI *ui = nullptr;
     Driver *driver = nullptr;
 #endif
-    NimBLEClientController clientController;
+    ICommClient *commClient = nullptr;
+    bool ownCommClient = false; // Whether we own the comm client and should delete it
     hw_timer_t *timer = nullptr;
     Settings settings;
     PluginManager *pluginManager{};
