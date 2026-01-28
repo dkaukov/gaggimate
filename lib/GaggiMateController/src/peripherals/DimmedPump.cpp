@@ -1,6 +1,8 @@
 #include "DimmedPump.h"
 
 #include <GaggiMateController.h>
+#include <platform/Logger.h>
+#include <platform/Threading.h>
 
 DimmedPump::DimmedPump(uint8_t ssr_pin, uint8_t sense_pin, PressureSensor *pressure_sensor)
     : _ssr_pin(ssr_pin), _sense_pin(sense_pin), _psm(_sense_pin, _ssr_pin, 100, FALLING, 2, 4), _pressureSensor(pressure_sensor),
@@ -24,7 +26,7 @@ void DimmedPump::loop() {
 }
 
 void DimmedPump::setPower(float setpoint) {
-    ESP_LOGV(LOG_TAG, "Setting power to %2f", setpoint);
+    LOG_V(LOG_TAG, "Setting power to %2f", setpoint);
     _ctrlPressure = setpoint > 0 ? 20.0f : 0.0f;
     _mode = ControlMode::POWER;
     _power = std::clamp(setpoint, 0.0f, 100.0f);

@@ -10,8 +10,9 @@
   "version": "1.0.0",
   "exclude": "doc",
   "frameworks": "arduino",
-  "platforms": ["esp32"],
+  "platforms": ["esp32", "ststm32"],
   "dependencies": {
+    "CommInterface": "file://lib/CommInterface",
     "FS": "*",
     "SPIFFS": "*",
     "ble_ota_dfu": "file://lib/ble_ota_dfu",

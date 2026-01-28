@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <algorithm>
 #include <cmath>
+#include <platform/Logger.h>
+#include <platform/Threading.h>
 
 Heater::Heater(TemperatureSensor *sensor, uint8_t heaterPin, const heater_error_callback_t &error_callback,
                const pid_result_callback_t &pid_callback)
@@ -54,7 +56,7 @@ void Heater::loop() {
 void Heater::setSetpoint(float setpoint) {
     if (this->setpoint != setpoint) {
         this->setpoint = setpoint;
-        ESP_LOGV(LOG_TAG, "Set setpoint %f°C", setpoint);
+        LOG_V(LOG_TAG, "Set setpoint %f°C", setpoint);
     }
 }
 
@@ -62,7 +64,7 @@ void Heater::setTunings(float Kp, float Ki, float Kd) {
     if (simplePid->getKp() != Kp || simplePid->getKi() != Ki || simplePid->getKd() != Kd) {
         simplePid->setControllerPIDGains(Kp, Ki, Kd, 0.0f);
         simplePid->reset();
-        ESP_LOGV(LOG_TAG, "Set tunings to Kp: %f, Ki: %f, Kd: %f", Kp, Ki, Kd);
+        LOG_V(LOG_TAG, "Set tunings to Kp: %f, Ki: %f, Kd: %f", Kp, Ki, Kd);
     }
 }
 
@@ -72,15 +74,15 @@ void Heater::setThermalFeedforward(float *pumpFlowPtr, float incomingWaterTemp, 
     valveStatus = valveStatusPtr;
     this->incomingWaterTemp = incomingWaterTemp;
       
-    ESP_LOGI(LOG_TAG, "Thermal feedforward setup - incoming water temp: %.1f°C, valve tracking: %s", 
+    LOG_I(LOG_TAG, "Thermal feedforward setup - incoming water temp: %.1f°C, valve tracking: %s", 
              incomingWaterTemp, valveStatusPtr ? "enabled" : "disabled");
-    ESP_LOGI(LOG_TAG, "Feedforward will be %s based on Kff value (currently %.3f)", 
+    LOG_I(LOG_TAG, "Feedforward will be %s based on Kff value (currently %.3f)", 
              combinedKff > 0.0f ? "ENABLED" : "DISABLED", combinedKff);
 }
 
 void Heater::setFeedforwardScale(float combinedKff) {
     this->combinedKff = combinedKff;
-    ESP_LOGI(LOG_TAG, "Combined feedforward gain (Kff) set to: %.3f output units per watt", combinedKff);
+    LOG_I(LOG_TAG, "Combined feedforward gain (Kff) set to: %.3f output units per watt", combinedKff);
 }
 
 void Heater::autotune(int goal, int windowSize) {
@@ -136,7 +138,7 @@ void Heater::loopAutotune() {
         if (autotuner->maxPowerOn) {
             output = TUNER_OUTPUT_SPAN;
         }
-        ESP_LOGI(LOG_TAG, "Autotuner Cycle: Temperature=%.2f", temperature);
+        LOG_I(LOG_TAG, "Autotuner Cycle: Temperature=%.2f", temperature);
         autotuner->update(temperature, millis() / 1000.0f);
         while (micros() - microseconds < loopInterval) {
             softPwm(TUNER_OUTPUT_SPAN);
@@ -158,9 +160,9 @@ void Heater::loopAutotune() {
 
     setTunings(autotuner->getKp() * 1000.0f, autotuner->getKi() * 1000.0f, autotuner->getKd() * 1000.0f);
 
-    ESP_LOGI(LOG_TAG, "Autotuning finished: Kp=%.4f, Ki=%.4f, Kd=%.4f, Kff=%.4f\n", autotuner->getKp() * 1000.0f,
+    LOG_I(LOG_TAG, "Autotuning finished: Kp=%.4f, Ki=%.4f, Kd=%.4f, Kff=%.4f\n", autotuner->getKp() * 1000.0f,
              autotuner->getKi() * 1000.0f, autotuner->getKd() * 1000.0f, autotuner->getKff() * 1000.0f);
-    ESP_LOGI(LOG_TAG, "System delay: %.2f s, System gain: %.4f Setpoint Freq: %.4f Hz\n", autotuner->getSystemDelay(),
+    LOG_I(LOG_TAG, "System delay: %.2f s, System gain: %.4f Setpoint Freq: %.4f Hz\n", autotuner->getSystemDelay(),
              autotuner->getSystemGain(), autotuner->getCrossoverFreq() / 2);
 }
 
@@ -192,7 +194,7 @@ float Heater::softPwm(uint32_t windowSize) {
 void Heater::plot(float optimumOutput, float outputScale, uint8_t everyNth) {
     if (plotCount >= everyNth) {
         plotCount = 1;
-        ESP_LOGV(LOG_TAG, "PID Plot: output=%.2f, input=%.2f, setpoint=%.2f", optimumOutput * outputScale, temperature, setpoint);
+        LOG_V(LOG_TAG, "PID Plot: output=%.2f, input=%.2f, setpoint=%.2f", optimumOutput * outputScale, temperature, setpoint);
     } else
         plotCount++;
 }

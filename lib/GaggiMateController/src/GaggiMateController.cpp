@@ -3,21 +3,69 @@
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <peripherals/DimmedPump.h>
 #include <peripherals/SimplePump.h>
+#include <platform/Logger.h>
+#include <platform/System.h>
 
 #include <utility>
 
+// Include platform-specific implementations
+#ifdef ESP32
+#include <BLECommServer.h>
+#include <peripherals/DimmedPump.h>
+#else
+#include <SerialCommServer.h>
+#include <peripherals/STM32DimmedPump.h>
+#endif
+
 GaggiMateController::GaggiMateController(String version) : _version(std::move(version)) {
+#ifdef ESP32
+    // Register default ESP32 board configurations
     configs.push_back(GM_STANDARD_REV_1X);
     configs.push_back(GM_STANDARD_REV_2X);
     configs.push_back(GM_PRO_REV_1x);
     configs.push_back(GM_PRO_LEGO);
     configs.push_back(GM_PRO_REV_11);
+#endif
+    // STM32 configs are registered via registerBoardConfig() from main.cpp
+}
+
+GaggiMateController::~GaggiMateController() {
+    if (_ownComm && _comm) {
+        delete _comm;
+        _comm = nullptr;
+    }
+}
+
+void GaggiMateController::setCommServer(ICommServer *comm) {
+    if (_ownComm && _comm) {
+        delete _comm;
+    }
+    _comm = comm;
+    _ownComm = false; // Caller retains ownership
+}
+
+void GaggiMateController::setupCommunication() {
+    if (_comm == nullptr) {
+#ifdef ESP32
+        // Create BLE communication server for ESP32
+        _comm = new BLECommServer();
+        _ownComm = true;
+#else
+        // Create Serial communication server for STM32
+        // Using Serial1 (USART1) for communication with display
+        _comm = new SerialCommServer(Serial1);
+        _ownComm = true;
+#endif
+    }
 }
 
 void GaggiMateController::setup() {
     delay(5000);
+
+    // Setup communication first (may be needed for board detection on some platforms)
+    setupCommunication();
+
     detectBoard();
     detectAddon();
 
@@ -26,36 +74,54 @@ void GaggiMateController::setup() {
         [this]() { thermalRunawayShutdown(); });
     this->heater = new Heater(
         this->thermocouple, _config.heaterPin, [this]() { thermalRunawayShutdown(); },
-        [this](float Kp, float Ki, float Kd) { _ble.sendAutotuneResult(Kp, Ki, Kd); });
+        [this](float Kp, float Ki, float Kd) { _comm->sendAutotuneResult(Kp, Ki, Kd); });
     this->valve = new SimpleRelay(_config.valvePin, _config.valveOn);
     this->alt = new SimpleRelay(_config.altPin, _config.altOn);
+
     if (_config.capabilites.pressure) {
         pressureSensor = new PressureSensor(_config.pressureSda, _config.pressureScl, [this](float pressure) { /* noop */ });
     }
+
+    // Create appropriate pump implementation based on platform and capabilities
     if (_config.capabilites.dimming) {
+#ifdef ESP32
         pump = new DimmedPump(_config.pumpPin, _config.pumpSensePin, pressureSensor);
+#else
+        pump = new STM32DimmedPump(_config.pumpPin, _config.pumpSensePin, pressureSensor);
+#endif
     } else {
         pump = new SimplePump(_config.pumpPin, _config.pumpOn, _config.capabilites.ssrPump ? 1000.0f : 5000.0f);
     }
-    this->brewBtn = new DigitalInput(_config.brewButtonPin, [this](const bool state) { _ble.sendBrewBtnState(state); });
-    this->steamBtn = new DigitalInput(_config.steamButtonPin, [this](const bool state) { _ble.sendSteamBtnState(state); });
 
-    // 4-Pin peripheral port
+    this->brewBtn = new DigitalInput(_config.brewButtonPin, [this](const bool state) { _comm->sendBrewBtnState(state); });
+    this->steamBtn = new DigitalInput(_config.steamButtonPin, [this](const bool state) { _comm->sendSteamBtnState(state); });
+
+    // 4-Pin peripheral port (I2C for LED controller and ToF sensor)
+#ifdef ESP32
     if (!Wire.begin(_config.sunriseSdaPin, _config.sunriseSclPin, 400000)) {
-        ESP_LOGE(LOG_TAG, "Failed to initialize I2C bus");
+        LOG_E(LOG_TAG, "Failed to initialize I2C bus");
     }
+#else
+    // STM32 Wire initialization (may need different approach)
+    Wire.begin();
+#endif
+
     this->ledController = new LedController(&Wire);
-    this->distanceSensor = new DistanceSensor(&Wire, [this](int distance) { _ble.sendTofMeasurement(distance); });
+    this->distanceSensor = new DistanceSensor(&Wire, [this](int distance) { _comm->sendTofMeasurement(distance); });
+
     if (this->ledController->isAvailable()) {
         _config.capabilites.ledControls = true;
         _config.capabilites.tof = true;
-        _ble.registerLedControlCallback(
-            [this](uint8_t channel, uint8_t brightness) { ledController->setChannel(channel, brightness); });
     }
 
+    // Initialize communication with system info
     String systemInfo = make_system_info(_config, _version);
-    _ble.initServer(systemInfo);
+    _comm->init(systemInfo);
 
+    // Register all communication callbacks
+    registerCommCallbacks();
+
+    // Setup peripherals
     if (_config.capabilites.ledControls) {
         this->ledController->setup();
     }
@@ -70,27 +136,36 @@ void GaggiMateController::setup() {
     this->pump->setup();
     this->brewBtn->setup();
     this->steamBtn->setup();
+
     if (_config.capabilites.pressure) {
         pressureSensor->setup();
-        _ble.registerPressureScaleCallback([this](float scale) { this->pressureSensor->setScale(scale); });
+        _comm->registerPressureScaleCallback([this](float scale) { this->pressureSensor->setScale(scale); });
     }
-   // Set up thermal feedforward for main heater if pressure/dimming capability exists
+
+    // Set up thermal feedforward for main heater if pressure/dimming capability exists
     if (heater && _config.capabilites.dimming && _config.capabilites.pressure) {
+#ifdef ESP32
         auto dimmedPump = static_cast<DimmedPump *>(pump);
-        float* pumpFlowPtr = dimmedPump->getPumpFlowPtr();
-        int* valveStatusPtr = dimmedPump->getValveStatusPtr();
-        
+#else
+        auto dimmedPump = static_cast<STM32DimmedPump *>(pump);
+#endif
+        float *pumpFlowPtr = dimmedPump->getPumpFlowPtr();
+        int *valveStatusPtr = dimmedPump->getValveStatusPtr();
+
         heater->setThermalFeedforward(pumpFlowPtr, 23.0f, valveStatusPtr);
         heater->setFeedforwardScale(0.0f);
-        
+    }
 
-    } 
     // Initialize last ping time
     lastPingTime = millis();
 
-    _ble.registerOutputControlCallback([this](bool valve, float pumpSetpoint, float heaterSetpoint) {
+    LOG_I(LOG_TAG, "Initialization done");
+}
+
+void GaggiMateController::registerCommCallbacks() {
+    _comm->registerOutputControlCallback([this](bool valve, float pumpSetpoint, float heaterSetpoint) {
         handlePing();
-        if (errorState != ERROR_CODE_NONE) {
+        if (errorState != COMM_ERROR_CODE_NONE) {
             return;
         }
         this->pump->setPower(pumpSetpoint);
@@ -99,13 +174,18 @@ void GaggiMateController::setup() {
         if (!_config.capabilites.dimming) {
             return;
         }
+#ifdef ESP32
         auto dimmedPump = static_cast<DimmedPump *>(pump);
+#else
+        auto dimmedPump = static_cast<STM32DimmedPump *>(pump);
+#endif
         dimmedPump->setValveState(valve);
     });
-    _ble.registerAdvancedOutputControlCallback(
+
+    _comm->registerAdvancedOutputControlCallback(
         [this](bool valve, float heaterSetpoint, bool pressureTarget, float pressure, float flow) {
             handlePing();
-            if (errorState != ERROR_CODE_NONE) {
+            if (errorState != COMM_ERROR_CODE_NONE) {
                 return;
             }
             this->valve->set(valve);
@@ -113,7 +193,11 @@ void GaggiMateController::setup() {
             if (!_config.capabilites.dimming) {
                 return;
             }
+#ifdef ESP32
             auto dimmedPump = static_cast<DimmedPump *>(pump);
+#else
+            auto dimmedPump = static_cast<STM32DimmedPump *>(pump);
+#endif
             if (pressureTarget) {
                 dimmedPump->setPressureTarget(pressure, flow);
             } else {
@@ -121,17 +205,22 @@ void GaggiMateController::setup() {
             }
             dimmedPump->setValveState(valve);
         });
-    _ble.registerAltControlCallback([this](bool state) { this->alt->set(state); });
-    _ble.registerPidControlCallback([this](float Kp, float Ki, float Kd, float Kf) { 
-        this->heater->setTunings(Kp, Ki, Kd); 
-        
+
+    _comm->registerAltControlCallback([this](bool state) { this->alt->set(state); });
+
+    _comm->registerPidControlCallback([this](float Kp, float Ki, float Kd, float Kf) {
+        this->heater->setTunings(Kp, Ki, Kd);
         // Apply thermal feedforward parameters if available
         this->heater->setFeedforwardScale(Kf);
-
     });
-    _ble.registerPumpModelCoeffsCallback([this](float a, float b, float c, float d) {
+
+    _comm->registerPumpModelCoeffsCallback([this](float a, float b, float c, float d) {
         if (_config.capabilites.dimming) {
+#ifdef ESP32
             auto dimmedPump = static_cast<DimmedPump *>(pump);
+#else
+            auto dimmedPump = static_cast<STM32DimmedPump *>(pump);
+#endif
             // Check if this is a flow measurement call (a and b are flow measurements, c and d are nan)
             if (isnan(c) && isnan(d)) {
                 dimmedPump->setPumpFlowCoeff(a, b); // a = oneBarFlow, b = nineBarFlow
@@ -140,19 +229,33 @@ void GaggiMateController::setup() {
             }
         }
     });
-    _ble.registerPingCallback([this]() { handlePing(); });
-    _ble.registerAutotuneCallback([this](int goal, int windowSize) { this->heater->autotune(goal, windowSize); });
-    _ble.registerTareCallback([this]() {
+
+    _comm->registerPingCallback([this]() { handlePing(); });
+
+    _comm->registerAutotuneCallback([this](int goal, int windowSize) { this->heater->autotune(goal, windowSize); });
+
+    _comm->registerTareCallback([this]() {
         if (!_config.capabilites.dimming) {
             return;
         }
+#ifdef ESP32
         auto dimmedPump = static_cast<DimmedPump *>(pump);
+#else
+        auto dimmedPump = static_cast<STM32DimmedPump *>(pump);
+#endif
         dimmedPump->tare();
     });
-    ESP_LOGI(LOG_TAG, "Initialization done");
+
+    _comm->registerLedControlCallback(
+        [this](uint8_t channel, uint8_t brightness) { ledController->setChannel(channel, brightness); });
 }
 
 void GaggiMateController::loop() {
+    // Process communication (important for serial mode)
+    if (_comm) {
+        _comm->loop();
+    }
+
     unsigned long now = millis();
     if (lastPingTime < now && (now - lastPingTime) / 1000 > PING_TIMEOUT_SECONDS) {
         handlePingTimeout();
@@ -164,23 +267,35 @@ void GaggiMateController::loop() {
 void GaggiMateController::registerBoardConfig(ControllerConfig config) { configs.push_back(config); }
 
 void GaggiMateController::detectBoard() {
+#ifdef ESP32
+    // ESP32: Use ADC-based board detection
     pinMode(DETECT_EN_PIN, OUTPUT);
     pinMode(DETECT_VALUE_PIN, INPUT_PULLDOWN);
     digitalWrite(DETECT_EN_PIN, HIGH);
-    uint16_t millivolts = analogReadMilliVolts(DETECT_VALUE_PIN);
+    uint16_t millivolts = Platform::readAnalogMillivolts(DETECT_VALUE_PIN);
     digitalWrite(DETECT_EN_PIN, LOW);
     int boardId = round(((float)millivolts) / 100.0f - 0.5f);
-    ESP_LOGI(LOG_TAG, "Detected Board ID: %d", boardId);
+    LOG_I(LOG_TAG, "Detected Board ID: %d", boardId);
     for (ControllerConfig config : configs) {
         if (config.autodetectValue == boardId) {
             _config = config;
-            ESP_LOGI(LOG_TAG, "Using Board: %s", _config.name.c_str());
+            LOG_I(LOG_TAG, "Using Board: %s", _config.name.c_str());
             return;
         }
     }
-    ESP_LOGW(LOG_TAG, "No compatible board detected.");
+    LOG_W(LOG_TAG, "No compatible board detected.");
     delay(5000);
-    ESP.restart();
+    Platform::systemRestart();
+#else
+    // STM32: Use first registered config (board selection done at compile time)
+    if (configs.empty()) {
+        LOG_E(LOG_TAG, "No board configuration registered!");
+        delay(5000);
+        Platform::systemRestart();
+    }
+    _config = configs[0];
+    LOG_I(LOG_TAG, "Using Board: %s", _config.name.c_str());
+#endif
 }
 
 void GaggiMateController::detectAddon() {
@@ -188,43 +303,47 @@ void GaggiMateController::detectAddon() {
 }
 
 void GaggiMateController::handlePing() {
-    if (errorState == ERROR_CODE_TIMEOUT) {
-        errorState = ERROR_CODE_NONE;
+    if (errorState == COMM_ERROR_CODE_TIMEOUT) {
+        errorState = COMM_ERROR_CODE_NONE;
     }
     lastPingTime = millis();
-    ESP_LOGV(LOG_TAG, "Ping received, system is alive");
+    LOG_V(LOG_TAG, "Ping received, system is alive");
 }
 
 void GaggiMateController::handlePingTimeout() {
-    ESP_LOGE(LOG_TAG, "Ping timeout detected. Turning off heater and pump for safety.\n");
+    LOG_E(LOG_TAG, "Ping timeout detected. Turning off heater and pump for safety.\n");
     // Turn off the heater and pump as a safety measure
     this->heater->setSetpoint(0);
     this->pump->setPower(0);
     this->valve->set(false);
     this->alt->set(false);
-    errorState = ERROR_CODE_TIMEOUT;
+    errorState = COMM_ERROR_CODE_TIMEOUT;
 }
 
 void GaggiMateController::thermalRunawayShutdown() {
-    ESP_LOGE(LOG_TAG, "Thermal runaway detected! Turning off heater and pump!\n");
+    LOG_E(LOG_TAG, "Thermal runaway detected! Turning off heater and pump!\n");
     // Turn off the heater and pump immediately
     this->heater->setSetpoint(0);
     this->pump->setPower(0);
     this->valve->set(false);
     this->alt->set(false);
-    errorState = ERROR_CODE_RUNAWAY;
-    _ble.sendError(ERROR_CODE_RUNAWAY);
+    errorState = COMM_ERROR_CODE_RUNAWAY;
+    _comm->sendError(COMM_ERROR_CODE_RUNAWAY);
 }
 
 void GaggiMateController::sendSensorData() {
     if (_config.capabilites.pressure) {
+#ifdef ESP32
         auto dimmedPump = static_cast<DimmedPump *>(pump);
-        _ble.sendSensorData(this->thermocouple->read(), this->pressureSensor->getPressure(), dimmedPump->getPuckFlow(),
-                            dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance());
+#else
+        auto dimmedPump = static_cast<STM32DimmedPump *>(pump);
+#endif
+        _comm->sendSensorData(this->thermocouple->read(), this->pressureSensor->getPressure(), dimmedPump->getPuckFlow(),
+                              dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance());
         if (this->valve->getState()) {
-            _ble.sendVolumetricMeasurement(dimmedPump->getCoffeeVolume());
+            _comm->sendVolumetricMeasurement(dimmedPump->getCoffeeVolume());
         }
     } else {
-        _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f);
+        _comm->sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f);
     }
 }

@@ -1,7 +1,7 @@
 #ifndef GAGGIMATECONTROLLER_H
 #define GAGGIMATECONTROLLER_H
 #include "ControllerConfig.h"
-#include "NimBLEServerController.h"
+#include <CommInterface.h>
 #include <peripherals/DigitalInput.h>
 #include <peripherals/DistanceSensor.h>
 #include <peripherals/Heater.h>
@@ -14,18 +14,38 @@
 
 constexpr double PING_TIMEOUT_SECONDS = 20.0;
 
+#ifdef ESP32
+// ESP32 board detection pins
 constexpr int DETECT_EN_PIN = 40;
 constexpr int DETECT_VALUE_PIN = 11;
+#else
+// STM32 doesn't use auto-detection (config passed at startup)
+constexpr int DETECT_EN_PIN = 0;
+constexpr int DETECT_VALUE_PIN = 0;
+#endif
 
 class GaggiMateController {
   public:
     GaggiMateController(String version);
+    ~GaggiMateController();
+
     void setup(void);
     void loop(void);
 
     void registerBoardConfig(ControllerConfig config);
 
+    /**
+     * @brief Set a custom communication server
+     *
+     * For STM32, this allows setting up SerialCommServer before setup() is called.
+     * For ESP32, BLECommServer is created automatically in setup().
+     *
+     * @param comm Pointer to ICommServer implementation (ownership transferred)
+     */
+    void setCommServer(ICommServer *comm);
+
   private:
+    void setupCommunication();
     void detectBoard();
     void detectAddon();
     void handlePing();
@@ -34,9 +54,11 @@ class GaggiMateController {
     void startPidAutotune(void);
     void stopPidAutotune(void);
     void sendSensorData(void);
+    void registerCommCallbacks();
 
     ControllerConfig _config = ControllerConfig{};
-    NimBLEServerController _ble;
+    ICommServer *_comm = nullptr;
+    bool _ownComm = false; // Whether we own the comm server and should delete it
 
     Max31855Thermocouple *thermocouple = nullptr;
     Heater *heater = nullptr;
@@ -53,7 +75,7 @@ class GaggiMateController {
 
     String _version;
     unsigned long lastPingTime = 0;
-    size_t errorState = ERROR_CODE_NONE;
+    size_t errorState = COMM_ERROR_CODE_NONE;
 
     const char *LOG_TAG = "GaggiMateController";
 };

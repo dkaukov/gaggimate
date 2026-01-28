@@ -1,7 +1,8 @@
 #include "Max31855Thermocouple.h"
 #include <Arduino.h>
 #include <SPI.h>
-#include <freertos/FreeRTOS.h>
+#include <platform/Logger.h>
+#include <platform/Threading.h>
 
 Max31855Thermocouple::Max31855Thermocouple(const int csPin, const int misoPin, const int sckPin,
                                            const temperature_callback_t &callback,
@@ -28,7 +29,7 @@ void Max31855Thermocouple::setup() {
 
 void Max31855Thermocouple::loop() {
     if (errorCount >= MAX31855_MAX_ERRORS || temperature > MAX_SAFE_TEMP) {
-        ESP_LOGE(LOG_TAG, "Thermocouple failure! Error Count: %d, Temperature: %.2f\n", errorCount, temperature);
+        LOG_E(LOG_TAG, "Thermocouple failure! Error Count: %d, Temperature: %.2f\n", errorCount, temperature);
         error_callback();
         return;
     }
@@ -42,14 +43,14 @@ void Max31855Thermocouple::loop() {
     float temp;
     int status = max31855->read();
     if (status != STATUS_OK) {
-        ESP_LOGE(LOG_TAG, "Failed to read temperature: %d\n", status);
+        LOG_E(LOG_TAG, "Failed to read temperature: %d\n", status);
         temp = 0.0f;
     } else {
         temp = max31855->getTemperature();
     }
 
     if (temp <= 0.0f) {
-        ESP_LOGE(LOG_TAG, "Temperature reported below 0°C: %.2f\n", temp);
+        LOG_E(LOG_TAG, "Temperature reported below 0°C: %.2f\n", temp);
     }
 
     resultBuffer[bufferIndex] = temp <= 0.0f ? 1 : 0;
@@ -59,7 +60,7 @@ void Max31855Thermocouple::loop() {
     if (temp <= 0.0f)
         return;
     temperature = 0.2f * temp + 0.8f * temperature;
-    ESP_LOGV(LOG_TAG, "Updated temperature: %2f\n", temperature);
+    LOG_V(LOG_TAG, "Updated temperature: %2f\n", temperature);
     callback(temperature);
 }
 

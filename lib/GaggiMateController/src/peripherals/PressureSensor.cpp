@@ -1,5 +1,7 @@
 #include "PressureSensor.h"
 #include "Wire.h"
+#include <platform/Logger.h>
+#include <platform/Threading.h>
 
 PressureSensor::PressureSensor(uint8_t sda_pin, uint8_t scl_pin, const pressure_callback_t &callback, float pressure_scale,
                                float voltage_floor, float voltage_ceil)
@@ -11,11 +13,11 @@ PressureSensor::PressureSensor(uint8_t sda_pin, uint8_t scl_pin, const pressure_
 
 void PressureSensor::setup() {
     Wire1.begin(_sda_pin, _scl_pin);
-    ESP_LOGV(LOG_TAG, "Initializing pressure sensor on SDA: %d, SCL: %d", _sda_pin, _scl_pin);
+    LOG_V(LOG_TAG, "Initializing pressure sensor on SDA: %d, SCL: %d", _sda_pin, _scl_pin);
     delay(100);
     ads = new ADS1115(0x48, &Wire1);
     if (!ads->begin()) {
-        ESP_LOGE(LOG_TAG, "Failed to initialize ADS1115");
+        LOG_E(LOG_TAG, "Failed to initialize ADS1115");
     }
     ads->setGain(0);
     ads->setDataRate(4);
@@ -33,7 +35,7 @@ void PressureSensor::loop() {
         _pressure = 0.05f * pressure + 0.95f * _pressure;
         _raw_pressure = std::clamp(_raw_pressure, 0.0f, _pressure_scale);
         _pressure = std::clamp(_pressure, 0.0f, _pressure_scale);
-        ESP_LOGV(LOG_TAG, "ADC Reading: %d, Pressure Reading: %f, Pressure Step: %f, Floor: %d", reading, _pressure,
+        LOG_V(LOG_TAG, "ADC Reading: %d, Pressure Reading: %f, Pressure Step: %f, Floor: %d", reading, _pressure,
                  _pressure_step, _adc_floor);
         _callback(_pressure);
     }
