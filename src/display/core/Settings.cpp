@@ -112,6 +112,12 @@ Settings::Settings() {
     fullTankDistance = preferences.getInt("sr_fd", 50);
     altRelayFunction = preferences.getInt("alt_relay", ALT_RELAY_GRIND);
 
+    // Communication settings
+    commMode = preferences.getInt("comm_mode", 0);          // 0 = BLE, 1 = Serial
+    serialRxPin = preferences.getInt("serial_rx", -1);
+    serialTxPin = preferences.getInt("serial_tx", -1);
+    serialBaudRate = preferences.getInt("serial_baud", 115200);
+
     preferences.end();
 
     xTaskCreate(loopTask, "Settings::loop", configMINIMAL_STACK_SIZE * 6, this, 1, &taskHandle);
@@ -450,6 +456,26 @@ void Settings::setFullTankDistance(int full_tank_distance) {
 
 void Settings::setAltRelayFunction(int alt_relay_function) { altRelayFunction = alt_relay_function; }
 
+void Settings::setCommMode(int comm_mode) {
+    commMode = comm_mode;
+    save();
+}
+
+void Settings::setSerialRxPin(int rx_pin) {
+    serialRxPin = rx_pin;
+    save();
+}
+
+void Settings::setSerialTxPin(int tx_pin) {
+    serialTxPin = tx_pin;
+    save();
+}
+
+void Settings::setSerialBaudRate(int baud_rate) {
+    serialBaudRate = baud_rate;
+    save();
+}
+
 void Settings::setAutoWakeupEnabled(bool enabled) {
     autowakeupEnabled = enabled;
     save();
@@ -548,6 +574,12 @@ void Settings::doSave() {
     preferences.putInt("sr_ed", emptyTankDistance);
     preferences.putInt("sr_fd", fullTankDistance);
     preferences.putInt("alt_relay", altRelayFunction);
+
+    // Communication settings
+    preferences.putInt("comm_mode", commMode);
+    preferences.putInt("serial_rx", serialRxPin);
+    preferences.putInt("serial_tx", serialTxPin);
+    preferences.putInt("serial_baud", serialBaudRate);
 
     preferences.end();
 }

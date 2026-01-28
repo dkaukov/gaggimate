@@ -37,6 +37,10 @@
 #define ALT_RELAY_GRIND 1
 #define ALT_RELAY_STEAM_BOILER 2
 
+// Communication mode constants
+#define COMM_MODE_BLE 0
+#define COMM_MODE_SERIAL 1
+
 #define WIFI_CONNECT_TIMEOUT_MS 30000
 #define DEFAULT_WIFI_AP_TIMEOUT_MS 600000
 
