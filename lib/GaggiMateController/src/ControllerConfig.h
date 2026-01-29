@@ -1,5 +1,7 @@
 #ifndef CONTROLLERCONFIG_H
 #define CONTROLLERCONFIG_H
+
+#include <Arduino.h>
 #include <string>
 
 struct Capabilities {
@@ -218,5 +220,59 @@ const ControllerConfig GM_PRO_REV_11 = {.name = "GaggiMate Pro Rev 1.1",
                                             .ledControls = false,
                                             .tof = false,
                                         }};
+
+// =============================================================================
+// STM32 Configurations (Gaggiuino Lego V3)
+// =============================================================================
+#ifndef ESP32
+
+/**
+ * @brief Gaggiuino Lego V3 Configuration (MAX6675 thermocouple, AC dimming)
+ *
+ * Pin mapping based on Gaggiuino project pindef.h for BlackPill F411CE.
+ * Uses MAX6675 thermocouple instead of MAX31855.
+ *
+ * Features:
+ * - AC phase-angle pump dimming with zero-cross detection
+ * - MAX6675 K-type thermocouple
+ * - 3-way solenoid valve control
+ * - Brew and steam button inputs
+ */
+const ControllerConfig GM_GAGGIUINO_LEGO_V3 = {.name = "Gaggiuino Lego V3",
+                                               .autodetectValue = 12,
+                                               .heaterPin = PA15,     // Heater SSR relay
+                                               .pumpPin = PA1,        // AC dimmer output
+                                               .pumpSensePin = PA0,   // Zero-cross detection
+                                               .pumpOn = 1,
+                                               .valvePin = PC13,      // 3-way solenoid valve
+                                               .valveOn = 1,
+                                               .altPin = PB12,        // Steam valve relay
+                                               .altOn = 1,
+                                               .pressureScl = 0,
+                                               .pressureSda = 0,
+                                               .maxSckPin = PA5,      // MAX6675 CLK
+                                               .maxCsPin = PA6,       // MAX6675 CS
+                                               .maxMisoPin = PB4,     // MAX6675 DO (MISO)
+                                               .brewButtonPin = PC14, // Brew switch
+                                               .steamButtonPin = PC15, // Steam switch
+                                               .scaleSclPin = 0,
+                                               .scaleSdaPin = 0,
+                                               .scaleSda1Pin = 0,
+                                               .sunriseSclPin = 0,
+                                               .sunriseSdaPin = 0,
+                                               .ext1Pin = PB13,       // Steam boiler relay
+                                               .ext2Pin = 0,
+                                               .ext3Pin = 0,
+                                               .ext4Pin = 0,
+                                               .ext5Pin = 0,
+                                               .capabilites = {
+                                                   .dimming = true,
+                                                   .pressure = false,
+                                                   .ssrPump = false,
+                                                   .ledControls = false,
+                                                   .tof = false,
+                                               }};
+
+#endif // !ESP32
 
 #endif // CONTROLLERCONFIG_H

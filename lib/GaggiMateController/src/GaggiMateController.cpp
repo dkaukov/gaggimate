@@ -12,9 +12,12 @@
 #ifdef ESP32
 #include <BLECommServer.h>
 #include <peripherals/DimmedPump.h>
+#include <peripherals/Max31855Thermocouple.h>
 #else
+// STM32 with Gaggiuino Lego V3 uses MAX6675 thermocouple
 #include <SerialCommServer.h>
 #include <peripherals/STM32DimmedPump.h>
+#include <peripherals/Max6675Thermocouple.h>
 #endif
 
 GaggiMateController::GaggiMateController(String version) : _version(std::move(version)) {
@@ -68,9 +71,17 @@ void GaggiMateController::setup() {
     detectBoard();
     detectAddon();
 
+    // Create thermocouple driver based on platform
+#ifdef ESP32
     this->thermocouple = new Max31855Thermocouple(
         _config.maxCsPin, _config.maxMisoPin, _config.maxSckPin, [this](float temperature) { /* noop */ },
         [this]() { thermalRunawayShutdown(); });
+#else
+    // STM32 with Gaggiuino Lego V3 uses MAX6675 thermocouple
+    this->thermocouple = new Max6675Thermocouple(
+        _config.maxCsPin, _config.maxMisoPin, _config.maxSckPin, [this](float temperature) { /* noop */ },
+        [this]() { thermalRunawayShutdown(); });
+#endif
     this->heater = new Heater(
         this->thermocouple, _config.heaterPin, [this]() { thermalRunawayShutdown(); },
         [this](float Kp, float Ki, float Kd) { _comm->sendAutotuneResult(Kp, Ki, Kd); });

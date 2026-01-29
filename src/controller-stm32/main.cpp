@@ -1,14 +1,15 @@
 /**
  * @file main.cpp
- * @brief STM32 GaggiMate Controller Entry Point
+ * @brief STM32 Gaggiuino Lego V3 Controller Entry Point
  *
- * This is the main entry point for the STM32-based GaggiMate controller.
+ * This is the main entry point for the STM32-based GaggiMate controller
+ * using Gaggiuino Lego V3 hardware with MAX6675 thermocouple.
  * It uses serial UART communication instead of BLE to communicate with
  * the display board.
  */
 
 #include "main.h"
-#include "ControllerConfigSTM32.h"
+#include "ControllerConfig.h"
 #include "GaggiMateController.h"
 #include <platform/Logger.h>
 
@@ -25,9 +26,9 @@ void setup() {
     LOG_I("Main", "GaggiMate STM32 Controller starting...");
     LOG_I("Main", "Version: %s", BUILD_GIT_VERSION);
 
-    // Register STM32-specific board configurations
-    controller.registerBoardConfig(GM_STM32_PRO);
-    controller.registerBoardConfig(GM_STM32_STANDARD);
+    // Register Gaggiuino Lego V3 board configuration (MAX6675 thermocouple)
+    controller.registerBoardConfig(GM_GAGGIUINO_LEGO_V3);
+    LOG_I("Main", "Using Gaggiuino Lego V3 configuration (MAX6675)");
 
     // Initialize the controller
     controller.setup();

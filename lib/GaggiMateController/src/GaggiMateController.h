@@ -6,10 +6,10 @@
 #include <peripherals/DistanceSensor.h>
 #include <peripherals/Heater.h>
 #include <peripherals/LedController.h>
-#include <peripherals/Max31855Thermocouple.h>
 #include <peripherals/PressureSensor.h>
 #include <peripherals/Pump.h>
 #include <peripherals/SimpleRelay.h>
+#include <peripherals/TemperatureSensor.h>
 #include <vector>
 
 constexpr double PING_TIMEOUT_SECONDS = 20.0;
@@ -60,7 +60,7 @@ class GaggiMateController {
     ICommServer *_comm = nullptr;
     bool _ownComm = false; // Whether we own the comm server and should delete it
 
-    Max31855Thermocouple *thermocouple = nullptr;
+    TemperatureSensor *thermocouple = nullptr;
     Heater *heater = nullptr;
     SimpleRelay *valve = nullptr;
     SimpleRelay *alt = nullptr;
