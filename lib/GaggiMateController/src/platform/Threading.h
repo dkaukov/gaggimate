@@ -11,45 +11,18 @@
 #include <Arduino.h>
 
 #ifdef ESP32
-// ESP32 has FreeRTOS built-in
+// ESP32 has FreeRTOS built-in with espressif paths
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #else
-// STM32 Arduino - provide compatibility types
-// Note: Full FreeRTOS support requires adding STM32FreeRTOS library
-typedef void *TaskHandle_t;
-typedef void *xTaskHandle;
+// STM32 with STM32duino FreeRTOS library
+#include <STM32FreeRTOS.h>
 
-// Provide stub definitions for non-FreeRTOS builds
-#ifndef pdMS_TO_TICKS
-#define pdMS_TO_TICKS(ms) (ms)
-#endif
+// STM32duino FreeRTOS uses TaskHandle_t, provide xTaskHandle alias
+typedef TaskHandle_t xTaskHandle;
 
-#ifndef pdPASS
-#define pdPASS 1
-#endif
-
-#ifndef pdFAIL
-#define pdFAIL 0
-#endif
-
-#ifndef configMINIMAL_STACK_SIZE
-#define configMINIMAL_STACK_SIZE 128
-#endif
-
-// Simple loop-based "task" for STM32 without FreeRTOS
-// Tasks should be called from main loop instead
-#define xTaskCreate(func, name, stack, param, prio, handle) pdPASS
-#define vTaskDelay(ticks) delay(ticks)
-#define xTaskGetTickCount() millis()
-#define xTaskDelayUntil(lastWake, ticks) do { delay(ticks); *(lastWake) = millis(); } while(0)
-
-typedef unsigned long TickType_t;
-
-#ifndef portTICK_PERIOD_MS
-#define portTICK_PERIOD_MS 1
-#endif
-
+// STM32duino FreeRTOS uses vTaskDelayUntil, ESP32 uses xTaskDelayUntil
+#define xTaskDelayUntil vTaskDelayUntil
 #endif // ESP32
 
 /**
