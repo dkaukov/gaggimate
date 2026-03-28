@@ -57,7 +57,9 @@ void handleBenchCommand(String command) {
             return;
         }
         controller.benchSetPumpPower(pumpPercent);
-        SerialUSB.printf("bench pump=%.1f for 5s\n", pumpPercent);
+        SerialUSB.print("bench pump=");
+        SerialUSB.print(pumpPercent, 1);
+        SerialUSB.println(" for 5s");
         return;
     }
 
@@ -84,11 +86,25 @@ void handleBenchSerial() {
 #endif
 
 void setup() {
+#if defined(LED_BUILTIN)
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
+#endif
+
 #if defined(USBCON) && defined(USBD_USE_CDC)
     SerialUSB.begin(115200);
-    while (!SerialUSB && millis() < 3000) {
-        // Wait for USB serial connection (with timeout)
+    while (!SerialUSB && millis() < 30000) {
+        // Give the USB stack time to finish CDC enumeration instead of busy-spinning.
+        static bool ledState = false;
+#if defined(LED_BUILTIN)
+        ledState = !ledState;
+        digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
+#endif
+        delay(10);
     }
+#if defined(LED_BUILTIN)
+    digitalWrite(LED_BUILTIN, LOW);
+#endif
 #endif
 
     LOG_I("Main", "GaggiMate STM32 Controller starting...");
