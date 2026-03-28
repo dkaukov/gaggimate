@@ -32,6 +32,11 @@ export function Settings() {
   });
 
   const formRef = useRef();
+  const commRestartRequired =
+    !!fetchedSettings &&
+    ['commMode', 'serialRxPin', 'serialTxPin', 'serialBaudRate'].some(
+      key => String(formData[key] ?? '') !== String(fetchedSettings[key] ?? ''),
+    );
 
   useEffect(() => {
     if (fetchedSettings) {
@@ -1024,6 +1029,12 @@ export function Settings() {
           <div className='alert alert-warning'>
             <span>Some options like WiFi, NTP, controller communication, and managing Plugins require a restart.</span>
           </div>
+
+          {commRestartRequired && (
+            <div className='alert alert-info mt-3'>
+              <span>Controller communication settings changed. Use Save and Restart to apply the new serial transport.</span>
+            </div>
+          )}
 
           <div className='flex flex-col gap-2 pt-4 sm:flex-row'>
             <a href='/' className='btn btn-outline'>

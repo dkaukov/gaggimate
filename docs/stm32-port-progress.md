@@ -18,6 +18,7 @@ Working now:
 - STM32 startup now skips addon I2C probing when the selected board config does not define addon bus pins, avoiding blind LED/ToF probing on unsupported wiring.
 - STM32 logging no longer writes to generic `Serial` by default. On the BlackPill core, generic `Serial` maps to `Serial1`, which is also the controller/display UART, so leaving logs enabled there would corrupt the serial protocol.
 - Display-side settings now expose controller communication mode, serial RX/TX pins, and baud rate through `/api/settings` and the WebUI settings page. This makes the STM32 serial path configurable without manual NVS edits, but it still requires a display restart to take effect.
+- The WebUI now warns when controller communication settings have changed but the display has not yet been restarted, reducing the chance of saving UART changes and assuming they are already active.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
