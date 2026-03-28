@@ -248,8 +248,8 @@ const ControllerConfig GM_GAGGIUINO_LEGO_V3 = {.name = "Gaggiuino Lego V3",
                                                .valveOn = 1,
                                                .altPin = PB12,        // Steam valve relay
                                                .altOn = 1,
-                                               .pressureScl = 0,
-                                               .pressureSda = 0,
+                                               .pressureScl = PB6,    // BlackPill default I2C SCL
+                                               .pressureSda = PB7,    // BlackPill default I2C SDA
                                                .maxSckPin = PA5,      // MAX6675 CLK
                                                .maxCsPin = PA6,       // MAX6675 CS
                                                .maxMisoPin = PB4,     // MAX6675 DO (MISO)
@@ -267,7 +267,7 @@ const ControllerConfig GM_GAGGIUINO_LEGO_V3 = {.name = "Gaggiuino Lego V3",
                                                .ext5Pin = 0,
                                                .capabilites = {
                                                    .dimming = true,
-                                                   .pressure = false,
+                                                   .pressure = true,
                                                    .ssrPump = false,
                                                    .ledControls = false,
                                                    .tof = false,

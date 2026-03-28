@@ -25,10 +25,12 @@ Working now:
 - STM32 startup no longer inherits the full 5 second boot delay used on the ESP32 path; it now uses a short pause instead so serial comms and peripheral setup come up promptly on the BlackPill controller.
 - STM32 phase-angle timing now derives its maximum firing delay from the configured half-cycle length instead of a fixed 50 Hz-style ceiling, which keeps the timer math internally consistent for both 50 Hz and 60 Hz mains configurations.
 - STM32 controller main-loop cadence is now tighter than the legacy ESP32 path, reducing serial command latency and sensor update spacing from 250 ms to 50 ms on the UART controller build.
+- STM32 Lego V3 pressure support is now enabled in board config using the BlackPill default I2C pins (`PB7` SDA, `PB6` SCL), so the controller can instantiate the pressure sensor path instead of treating pressure as unsupported hardware.
+- Display-side volumetric availability no longer depends on `NIGHTLY_BUILD` for the serial controller path. When BLE scale data is unavailable, the display now allows controller-side flow estimation whenever the connected controller reports both `dimming` and `pressure` capabilities.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
-- STM32 config currently sets `pressure = false`, so pressure sensing, pressure-target control, and controller-side volumetric reporting are not functionally ported.
+- STM32 pressure support is enabled in software, but the real sensor wiring, calibration, and pressure-to-volumetric behavior still need hardware validation on an actual Lego V3 machine.
 - `detectAddon()` is still a TODO.
 - STM32 I2C addon path uses generic `Wire.begin()` only; pin mapping and electrical behavior are not verified.
 
@@ -44,9 +46,10 @@ Known incomplete or risky:
 - Add stricter field-count validation per message type.
 - Consider explicit disconnect/reconnect plugin events if UI state needs to react cleanly.
 
-### 3. Decide feature envelope for Lego V3
-- If this board has no pressure sensor: document pressure features as unsupported and gate UI/settings accordingly.
-- If pressure support is intended: add the real sensor path and calibration flow before testing volumetrics.
+### 3. Validate pressure and volumetric behavior on Lego V3
+- Confirm the pressure sensor is detected reliably on the BlackPill default I2C pins and produces sane live readings.
+- Verify controller-side pressure reporting, pump control, and flow-estimation volumetrics behave correctly with the serial display path.
+- Check calibration assumptions before treating volumetric dosing as production-ready.
 
 ### 4. Verify peripherals on real hardware
 - Confirm brew/steam switch polarity and debounce behavior.
@@ -69,4 +72,4 @@ Known incomplete or risky:
 1. Re-open `lib/GaggiMateController/src/peripherals/STM32DimmedPump.cpp`.
 2. Prepare a scope-based validation checklist for zero-cross and gate timing.
 3. Flash `controller-stm32-gaggiuino-lego-v3` and capture traces at several pump levels.
-4. If timing is stable, move to the next missing capability: pressure/volumetric scope or display comm UX polish.
+4. If timing is stable, move to pressure-sensor and volumetric validation on real hardware.

@@ -411,11 +411,11 @@ bool Controller::isAutotuning() const { return autotuning; }
 bool Controller::isReady() const { return !isUpdating() && !isErrorState() && !isAutotuning(); }
 
 bool Controller::isVolumetricAvailable() const {
-#ifdef NIGHTLY_BUILD
-    return isBluetoothScaleHealthy() || systemInfo.capabilities.dimming;
-#else
-    return isBluetoothScaleHealthy();
-#endif
+    if (isBluetoothScaleHealthy()) {
+        return true;
+    }
+
+    return settings.getCommMode() == COMM_MODE_SERIAL && systemInfo.capabilities.dimming && systemInfo.capabilities.pressure;
 }
 
 void Controller::autotune(int testTime, int samples) {
@@ -609,12 +609,8 @@ void Controller::activate() {
     clear();
     commClient->tare();
     if (isVolumetricAvailable()) {
-#ifdef NIGHTLY_BUILD
         currentVolumetricSource =
             isBluetoothScaleHealthy() ? VolumetricMeasurementSource::BLUETOOTH : VolumetricMeasurementSource::FLOW_ESTIMATION;
-#else
-        currentVolumetricSource = VolumetricMeasurementSource::BLUETOOTH;
-#endif
         if (mode == MODE_BREW) {
             pluginManager->trigger("controller:brew:prestart");
         }
@@ -672,7 +668,8 @@ void Controller::activateGrind() {
         return;
     clear();
     if (settings.isVolumetricTarget() && isVolumetricAvailable()) {
-        currentVolumetricSource = VolumetricMeasurementSource::BLUETOOTH;
+        currentVolumetricSource =
+            isBluetoothScaleHealthy() ? VolumetricMeasurementSource::BLUETOOTH : VolumetricMeasurementSource::FLOW_ESTIMATION;
         startProcess(new GrindProcess(ProcessTarget::VOLUMETRIC, 0, settings.getTargetGrindVolume(), settings.getGrindDelay()));
     } else {
         startProcess(
