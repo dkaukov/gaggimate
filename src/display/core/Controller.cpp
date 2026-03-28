@@ -179,7 +179,9 @@ void Controller::setupCommunication() {
     // Register callbacks
     registerCommCallbacks();
 
-    pluginManager->trigger("controller:bluetooth:init");
+    if (settings.getCommMode() == COMM_MODE_BLE) {
+        pluginManager->trigger("controller:bluetooth:init");
+    }
 }
 
 void Controller::registerCommCallbacks() {

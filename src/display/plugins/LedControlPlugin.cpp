@@ -42,19 +42,24 @@ void LedControlPlugin::updateControl() {
 }
 
 void LedControlPlugin::sendControl(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t ext) {
+    ICommClient *commClient = this->controller->getCommClient();
+    if (commClient == nullptr) {
+        return;
+    }
+
     if (r != last_r)
-        this->controller->getClientController()->sendLedControl(0, r);
+        commClient->sendLedControl(0, r);
     if (g != last_g)
-        this->controller->getClientController()->sendLedControl(1, g);
+        commClient->sendLedControl(1, g);
     if (b != last_b)
-        this->controller->getClientController()->sendLedControl(2, b);
+        commClient->sendLedControl(2, b);
     if (w != last_w)
-        this->controller->getClientController()->sendLedControl(3, w);
+        commClient->sendLedControl(3, w);
     if (ext != last_ext) {
-        this->controller->getClientController()->sendLedControl(4, 255 - ext);
-        this->controller->getClientController()->sendLedControl(5, 255 - ext);
-        this->controller->getClientController()->sendLedControl(6, 255 - ext);
-        this->controller->getClientController()->sendLedControl(7, 255 - ext);
+        commClient->sendLedControl(4, 255 - ext);
+        commClient->sendLedControl(5, 255 - ext);
+        commClient->sendLedControl(6, 255 - ext);
+        commClient->sendLedControl(7, 255 - ext);
     }
     last_r = r;
     last_g = g;

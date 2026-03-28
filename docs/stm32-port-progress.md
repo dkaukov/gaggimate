@@ -20,6 +20,7 @@ Working now:
 - Display-side settings now expose controller communication mode, serial RX/TX pins, and baud rate through `/api/settings` and the WebUI settings page. This makes the STM32 serial path configurable without manual NVS edits, but it still requires a display restart to take effect.
 - The WebUI now warns when controller communication settings have changed but the display has not yet been restarted, reducing the chance of saving UART changes and assuming they are already active.
 - The display settings API now bounds-checks serial pin and baud-rate inputs before saving them, so obviously invalid UART values from the WebUI will be ignored instead of becoming persisted startup config.
+- Display-side BLE assumptions were reduced for serial mode: OTA setup now checks for a real BLE controller before dereferencing it, generic tare/LED commands go through the transport-agnostic comm client, and BLE-only UI elements no longer assume BLE exists when the display is using UART.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.

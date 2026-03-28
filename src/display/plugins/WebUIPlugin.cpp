@@ -48,7 +48,10 @@ void WebUIPlugin::setup(Controller *_controller, PluginManager *_pluginManager) 
     pluginManager->on("controller:wifi:disconnect", [this](Event const &) { stop(); });
     pluginManager->on("controller:ready", [this](Event const &) {
         ota->setControllerVersion(controller->getSystemInfo().version);
-        ota->init(controller->getClientController()->getClient());
+        NimBLEClientController *bleClient = controller->getClientController();
+        if (bleClient != nullptr) {
+            ota->init(bleClient->getClient());
+        }
     });
     pluginManager->on("controller:autotune:result", [this](Event const &event) { sendAutotuneResult(); });
 

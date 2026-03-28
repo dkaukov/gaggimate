@@ -159,6 +159,8 @@ void onVolumetricHold(lv_event_t *e) {
     // Set flag to prevent click from firing when button is released
     volumetricHoldTriggered = true;
 
-    controller.getClientController()->tare();
+    if (controller.getCommClient() != nullptr) {
+        controller.getCommClient()->tare();
+    }
     BLEScales.tare();
 }
