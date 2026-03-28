@@ -288,7 +288,11 @@ void GaggiMateController::loop() {
         handlePingTimeout();
     }
     sendSensorData();
+#ifdef ESP32
     delay(250);
+#else
+    delay(50);
+#endif
 }
 
 void GaggiMateController::registerBoardConfig(ControllerConfig config) { configs.push_back(config); }

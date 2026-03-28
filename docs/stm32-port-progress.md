@@ -24,6 +24,7 @@ Working now:
 - Controller-side ping timeout handling now latches once per timeout event instead of re-running the same heater/pump shutdown path every control loop after comms are already lost.
 - STM32 startup no longer inherits the full 5 second boot delay used on the ESP32 path; it now uses a short pause instead so serial comms and peripheral setup come up promptly on the BlackPill controller.
 - STM32 phase-angle timing now derives its maximum firing delay from the configured half-cycle length instead of a fixed 50 Hz-style ceiling, which keeps the timer math internally consistent for both 50 Hz and 60 Hz mains configurations.
+- STM32 controller main-loop cadence is now tighter than the legacy ESP32 path, reducing serial command latency and sensor update spacing from 250 ms to 50 ms on the UART controller build.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
