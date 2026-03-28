@@ -16,21 +16,19 @@ Working now:
 - Digital input polling now initializes from the live pin state and applies a simple debounce window at a 20 ms poll interval, reducing the chance of stray brew/steam button transitions.
 - STM32 startup now skips addon I2C probing when the selected board config does not define addon bus pins, avoiding blind LED/ToF probing on unsupported wiring.
 - STM32 logging no longer writes to generic `Serial` by default. On the BlackPill core, generic `Serial` maps to `Serial1`, which is also the controller/display UART, so leaving logs enabled there would corrupt the serial protocol.
+- Display-side settings now expose controller communication mode, serial RX/TX pins, and baud rate through `/api/settings` and the WebUI settings page. This makes the STM32 serial path configurable without manual NVS edits, but it still requires a display restart to take effect.
 
 Known incomplete or risky:
-- `STM32DimmedPump` is still prototype-grade. `setupTimer()` is empty and triac firing is checked from a 30 ms task loop, which is not acceptable for precise 50/60 Hz phase-angle control.
+- `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
 - STM32 config currently sets `pressure = false`, so pressure sensing, pressure-target control, and controller-side volumetric reporting are not functionally ported.
 - `detectAddon()` is still a TODO.
-- Display-side serial/comm-mode settings exist in preferences, but there is no normal UI or API flow to enable/configure them.
 - STM32 I2C addon path uses generic `Wire.begin()` only; pin mapping and electrical behavior are not verified.
 
 ## Priority Plan
-### 1. Make pump dimming hardware-timer based
-- Replace the `micros()` polling scheme in `STM32DimmedPump` with a one-shot `HardwareTimer`.
-- On zero-cross ISR: arm timer for `_firingDelayMicros`.
-- On timer ISR: pulse the SSR/TRIAC gate for `TRIAC_PULSE_WIDTH_US`, then stop or disarm the timer.
-- Keep zero-cross ISR minimal and avoid blocking calls there.
-- Validate with an oscilloscope before trusting brew behavior.
+### 1. Validate pump dimming on real hardware
+- Confirm the new `HardwareTimer` path produces stable fire delays at low, medium, and high power.
+- Confirm the gate pulse width is sufficient for reliable latching and does not repeat within the same half-cycle.
+- Verify behavior at both startup and mode transitions where pump power changes quickly.
 
 ### 2. Stabilize serial transport
 - Keep the non-blocking handshake introduced in `096301b6`.
@@ -47,9 +45,10 @@ Known incomplete or risky:
 - Confirm MAX6675 fault handling with disconnected probe and overtemp.
 - Confirm I2C addon behavior for PCA9634 / TOF on STM32, or disable until proven.
 
-### 5. Expose serial mode cleanly on the display
-- Add a supported config path for `comm_mode`, `serial_rx`, `serial_tx`, and `serial_baud`.
-- Alternatively, set fixed defaults for the intended STM32 + display wiring and document them.
+### 5. Tighten display-side comm UX
+- Consider pre-filling board-specific serial defaults for the intended STM32 + display pair.
+- Consider gating BLE-only UI affordances when serial mode is selected.
+- If hot-switching comm mode is needed later, add explicit transport reinitialization instead of relying on restart.
 
 ## Real Hardware Test Order
 1. Scope zero-cross input and triac gate output at several power levels.
@@ -60,6 +59,6 @@ Known incomplete or risky:
 
 ## Suggested Next Session Start
 1. Re-open `lib/GaggiMateController/src/peripherals/STM32DimmedPump.cpp`.
-2. Implement `HardwareTimer`-based one-shot firing.
-3. Rebuild `controller-stm32-gaggiuino-lego-v3`.
-4. Prepare a scope-based validation checklist before flashing hardware.
+2. Prepare a scope-based validation checklist for zero-cross and gate timing.
+3. Flash `controller-stm32-gaggiuino-lego-v3` and capture traces at several pump levels.
+4. If timing is stable, move to the next missing capability: pressure/volumetric scope or display comm UX polish.

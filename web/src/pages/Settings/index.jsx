@@ -39,6 +39,10 @@ export function Settings() {
       // but preserve it if it already exists in the fetched data
       const settingsWithToggle = {
         ...fetchedSettings,
+        commMode: fetchedSettings.commMode ?? 0,
+        serialRxPin: fetchedSettings.serialRxPin ?? -1,
+        serialTxPin: fetchedSettings.serialTxPin ?? -1,
+        serialBaudRate: fetchedSettings.serialBaudRate ?? 115200,
         standbyDisplayEnabled:
           fetchedSettings.standbyDisplayEnabled !== undefined
             ? fetchedSettings.standbyDisplayEnabled
@@ -514,6 +518,84 @@ export function Settings() {
               />
             </div>
 
+            <div className='divider'>Controller Communication</div>
+
+            <div className='form-control'>
+              <label htmlFor='commMode' className='mb-2 block text-sm font-medium'>
+                Controller Link
+              </label>
+              <select
+                id='commMode'
+                name='commMode'
+                className='select select-bordered w-full'
+                value={formData.commMode ?? 0}
+                onChange={onChange('commMode')}
+              >
+                <option value={0}>BLE</option>
+                <option value={1}>Serial UART</option>
+              </select>
+              <div className='mt-2 text-xs opacity-70'>
+                Serial settings apply after restart. Use UART mode for STM32 controller builds.
+              </div>
+            </div>
+
+            {Number(formData.commMode) === 1 && (
+              <>
+                <div className='form-control'>
+                  <label htmlFor='serialRxPin' className='mb-2 block text-sm font-medium'>
+                    Serial RX Pin
+                  </label>
+                  <input
+                    id='serialRxPin'
+                    name='serialRxPin'
+                    type='number'
+                    className='input input-bordered w-full'
+                    placeholder='-1'
+                    value={formData.serialRxPin}
+                    onChange={onChange('serialRxPin')}
+                  />
+                  <div className='mt-2 text-xs opacity-70'>
+                    Use `-1` to keep the display board&apos;s default UART RX pin.
+                  </div>
+                </div>
+
+                <div className='form-control'>
+                  <label htmlFor='serialTxPin' className='mb-2 block text-sm font-medium'>
+                    Serial TX Pin
+                  </label>
+                  <input
+                    id='serialTxPin'
+                    name='serialTxPin'
+                    type='number'
+                    className='input input-bordered w-full'
+                    placeholder='-1'
+                    value={formData.serialTxPin}
+                    onChange={onChange('serialTxPin')}
+                  />
+                  <div className='mt-2 text-xs opacity-70'>
+                    Use `-1` to keep the display board&apos;s default UART TX pin.
+                  </div>
+                </div>
+
+                <div className='form-control'>
+                  <label htmlFor='serialBaudRate' className='mb-2 block text-sm font-medium'>
+                    Serial Baud Rate
+                  </label>
+                  <input
+                    id='serialBaudRate'
+                    name='serialBaudRate'
+                    type='number'
+                    className='input input-bordered w-full'
+                    placeholder='115200'
+                    min='1'
+                    step='1'
+                    value={formData.serialBaudRate}
+                    onChange={onChange('serialBaudRate')}
+                  />
+                </div>
+              </>
+            )}
+
             <div className='form-control'>
               <label htmlFor='timezone' className='mb-2 block text-sm font-medium'>
                 Timezone
@@ -940,7 +1022,7 @@ export function Settings() {
 
         <div className='pt-4 lg:col-span-10'>
           <div className='alert alert-warning'>
-            <span>Some options like WiFi, NTP and managing Plugins require a restart.</span>
+            <span>Some options like WiFi, NTP, controller communication, and managing Plugins require a restart.</span>
           </div>
 
           <div className='flex flex-col gap-2 pt-4 sm:flex-row'>
