@@ -24,6 +24,16 @@
 
 #include <Arduino.h>
 
+#if defined(HAVE_SERIALUSB)
+#define GAGGIMATE_LOG_SERIAL SerialUSB
+#define GAGGIMATE_LOGGING_ENABLED 1
+#elif defined(GAGGIMATE_DEBUG_SERIAL)
+#define GAGGIMATE_LOG_SERIAL GAGGIMATE_DEBUG_SERIAL
+#define GAGGIMATE_LOGGING_ENABLED 1
+#else
+#define GAGGIMATE_LOGGING_ENABLED 0
+#endif
+
 // Define log levels
 #ifndef LOG_LEVEL
 #define LOG_LEVEL 3 // Default to INFO level
@@ -37,12 +47,18 @@
 #define LOG_LEVEL_VERBOSE 5
 
 // Helper macro for formatted printing with tag
+#if GAGGIMATE_LOGGING_ENABLED
 #define _LOG_PRINT(level, tag, format, ...)                                                                            \
     do {                                                                                                               \
-        Serial.printf("[%s] %s: ", level, tag);                                                                        \
-        Serial.printf(format, ##__VA_ARGS__);                                                                          \
-        Serial.println();                                                                                              \
+        GAGGIMATE_LOG_SERIAL.printf("[%s] %s: ", level, tag);                                                          \
+        GAGGIMATE_LOG_SERIAL.printf(format, ##__VA_ARGS__);                                                            \
+        GAGGIMATE_LOG_SERIAL.println();                                                                                \
     } while (0)
+#else
+#define _LOG_PRINT(level, tag, format, ...)                                                                            \
+    do {                                                                                                               \
+    } while (0)
+#endif
 
 #if LOG_LEVEL >= LOG_LEVEL_ERROR
 #define LOG_E(tag, format, ...) _LOG_PRINT("E", tag, format, ##__VA_ARGS__)

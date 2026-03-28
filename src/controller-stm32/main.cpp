@@ -17,11 +17,12 @@
 GaggiMateController controller(BUILD_GIT_VERSION);
 
 void setup() {
-    // Initialize debug serial (USB CDC or different UART)
-    Serial.begin(115200);
-    while (!Serial && millis() < 3000) {
-        // Wait for serial connection (with timeout)
+#if defined(HAVE_SERIALUSB)
+    SerialUSB.begin(115200);
+    while (!SerialUSB && millis() < 3000) {
+        // Wait for USB serial connection (with timeout)
     }
+#endif
 
     LOG_I("Main", "GaggiMate STM32 Controller starting...");
     LOG_I("Main", "Version: %s", BUILD_GIT_VERSION);
