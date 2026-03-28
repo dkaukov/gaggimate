@@ -63,7 +63,12 @@ void GaggiMateController::setupCommunication() {
 }
 
 void GaggiMateController::setup() {
+#ifdef ESP32
     delay(5000);
+#else
+    // Keep STM32 startup responsive; this port does not need the long BLE-era boot pause.
+    delay(250);
+#endif
 
     // Setup communication first (may be needed for board detection on some platforms)
     setupCommunication();
