@@ -107,21 +107,31 @@ void GaggiMateController::setup() {
     this->steamBtn = new DigitalInput(_config.steamButtonPin, [this](const bool state) { _comm->sendSteamBtnState(state); });
 
     // 4-Pin peripheral port (I2C for LED controller and ToF sensor)
+    bool addonBusAvailable = false;
 #ifdef ESP32
     if (!Wire.begin(_config.sunriseSdaPin, _config.sunriseSclPin, 400000)) {
         LOG_E(LOG_TAG, "Failed to initialize I2C bus");
+    } else {
+        addonBusAvailable = true;
     }
 #else
-    // STM32 Wire initialization (may need different approach)
-    Wire.begin();
+    // STM32 addon probing is only valid when the board config defines addon I2C pins.
+    if (_config.sunriseSdaPin != 0 && _config.sunriseSclPin != 0) {
+        Wire.begin();
+        addonBusAvailable = true;
+    } else {
+        LOG_I(LOG_TAG, "Skipping addon I2C initialization: no STM32 addon bus pins configured");
+    }
 #endif
 
-    this->ledController = new LedController(&Wire);
-    this->distanceSensor = new DistanceSensor(&Wire, [this](int distance) { _comm->sendTofMeasurement(distance); });
+    if (addonBusAvailable) {
+        this->ledController = new LedController(&Wire);
+        this->distanceSensor = new DistanceSensor(&Wire, [this](int distance) { _comm->sendTofMeasurement(distance); });
 
-    if (this->ledController->isAvailable()) {
-        _config.capabilites.ledControls = true;
-        _config.capabilites.tof = true;
+        if (this->ledController->isAvailable()) {
+            _config.capabilites.ledControls = true;
+            _config.capabilites.tof = true;
+        }
     }
 
     // Initialize communication with system info
@@ -132,10 +142,10 @@ void GaggiMateController::setup() {
     registerCommCallbacks();
 
     // Setup peripherals
-    if (_config.capabilites.ledControls) {
+    if (_config.capabilites.ledControls && this->ledController != nullptr) {
         this->ledController->setup();
     }
-    if (_config.capabilites.tof) {
+    if (_config.capabilites.tof && this->distanceSensor != nullptr) {
         this->distanceSensor->setup();
     }
 
@@ -256,8 +266,10 @@ void GaggiMateController::registerCommCallbacks() {
         dimmedPump->tare();
     });
 
-    _comm->registerLedControlCallback(
-        [this](uint8_t channel, uint8_t brightness) { ledController->setChannel(channel, brightness); });
+    if (ledController != nullptr) {
+        _comm->registerLedControlCallback(
+            [this](uint8_t channel, uint8_t brightness) { ledController->setChannel(channel, brightness); });
+    }
 }
 
 void GaggiMateController::loop() {
