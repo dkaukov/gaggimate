@@ -86,17 +86,28 @@ void SerialCommServer::processMessage(char type, const String &payload) {
 
     switch (type) {
     case MSG_OUTPUT_CONTROL: {
+        size_t tokenCount = getToken(payload, 0, ',').length() == 0 ? 0 : countTokens(payload, ',');
+        if (tokenCount < 4) {
+            break;
+        }
+
         uint8_t controlType = getToken(payload, 0, ',').toInt();
         uint8_t valve = getToken(payload, 1, ',').toInt();
         float boilerSetpoint = getToken(payload, 3, ',').toFloat();
 
         if (controlType == 0) {
+            if (tokenCount != 4) {
+                break;
+            }
             // Simple output control
             float pumpSetpoint = getToken(payload, 2, ',').toFloat();
             if (_outputControlCallback) {
                 _outputControlCallback(valve == 1, pumpSetpoint, boilerSetpoint);
             }
         } else if (controlType == 1) {
+            if (tokenCount != 7) {
+                break;
+            }
             // Advanced output control
             bool pressureTarget = getToken(payload, 4, ',').toInt() == 1;
             float pumpPressure = getToken(payload, 5, ',').toFloat();
@@ -124,6 +135,9 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_PID_SETTINGS: {
+        if (countTokens(payload, ',') < 3) {
+            break;
+        }
         float Kp = getToken(payload, 0, ',').toFloat();
         float Ki = getToken(payload, 1, ',').toFloat();
         float Kd = getToken(payload, 2, ',').toFloat();
@@ -139,6 +153,9 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_PUMP_MODEL: {
+        if (countTokens(payload, ',') < 2) {
+            break;
+        }
         float a = getToken(payload, 0, ',').toFloat();
         float b = getToken(payload, 1, ',').toFloat();
         float c = getToken(payload, 2, ',', "nan").toFloat();
@@ -150,6 +167,9 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_AUTOTUNE_START: {
+        if (countTokens(payload, ',') != 2) {
+            break;
+        }
         int testTime = getToken(payload, 0, ',').toInt();
         int samples = getToken(payload, 1, ',').toInt();
         if (_autotuneCallback) {
@@ -174,6 +194,9 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_LED_CONTROL: {
+        if (countTokens(payload, ',') != 2) {
+            break;
+        }
         uint8_t channel = getToken(payload, 0, ',').toInt();
         uint8_t brightness = getToken(payload, 1, ',').toInt();
         if (_ledControlCallback) {

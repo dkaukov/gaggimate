@@ -136,6 +136,9 @@ void SerialCommClient::processMessage(char type, const String &payload) {
 
     switch (type) {
     case MSG_SENSOR_DATA: {
+        if (countTokens(payload, ',') != 5) {
+            break;
+        }
         float temperature = getToken(payload, 0, ',').toFloat();
         float pressure = getToken(payload, 1, ',').toFloat();
         float puckFlow = getToken(payload, 2, ',').toFloat();
@@ -177,6 +180,9 @@ void SerialCommClient::processMessage(char type, const String &payload) {
     }
 
     case MSG_AUTOTUNE_RESULT: {
+        if (countTokens(payload, ',') < 3) {
+            break;
+        }
         float Kp = getToken(payload, 0, ',').toFloat();
         float Ki = getToken(payload, 1, ',').toFloat();
         float Kd = getToken(payload, 2, ',').toFloat();

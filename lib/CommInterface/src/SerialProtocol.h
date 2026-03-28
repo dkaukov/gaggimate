@@ -270,6 +270,26 @@ inline String getToken(const String &from, uint8_t index, char separator, const 
     return defaultValue;
 }
 
+/**
+ * @brief Count separator-delimited tokens in a string
+ * @param from Source string
+ * @param separator Separator character
+ * @return Number of tokens
+ */
+inline size_t countTokens(const String &from, char separator) {
+    if (from.length() == 0) {
+        return 0;
+    }
+
+    size_t count = 1;
+    for (size_t i = 0; i < from.length(); i++) {
+        if (from[i] == separator) {
+            count++;
+        }
+    }
+    return count;
+}
+
 } // namespace SerialProtocol
 
 #endif // SERIALPROTOCOL_H

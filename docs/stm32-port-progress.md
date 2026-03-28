@@ -11,6 +11,7 @@ Working now:
 - STM32 entrypoint, board config, serial transport, heater path, valve path, alt relay path, button path, and MAX6675 thermocouple path are wired.
 - Serial display handshake was hardened in commit `096301b6 fix: harden serial display handshake`.
 - `STM32DimmedPump` now uses an STM32 `HardwareTimer` (`TIM2`) to schedule triac firing from zero-cross instead of relying on a 30 ms polling loop. This is a meaningful safety improvement, but it still needs oscilloscope validation on real hardware.
+- Serial payload handling now rejects malformed sensor, autotune, output-control, PID, pump-model, autotune-start, and LED-control payloads before applying them.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is still prototype-grade. `setupTimer()` is empty and triac firing is checked from a 30 ms task loop, which is not acceptable for precise 50/60 Hz phase-angle control.
