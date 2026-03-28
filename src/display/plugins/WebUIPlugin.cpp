@@ -350,12 +350,19 @@ void WebUIPlugin::handleOTASettings(uint32_t clientId, JsonDocument &request) {
 }
 
 void WebUIPlugin::handleOTAStart(uint32_t clientId, JsonDocument &request) {
-    updating = true;
     if (request["cp"].is<String>()) {
         updateComponent = request["cp"].as<String>();
     } else {
         updateComponent = "";
     }
+
+    if (updateComponent == "controller" && !isControllerOTAAvailable()) {
+        ESP_LOGW("WebUIPlugin", "Controller OTA requested while unsupported by current comm mode");
+        updateOTAStatus(ota->getCurrentVersion());
+        return;
+    }
+
+    updating = true;
 }
 
 void WebUIPlugin::handleAutotuneStart(uint32_t clientId, JsonDocument &request) {
@@ -717,13 +724,20 @@ void WebUIPlugin::handleBLEScaleInfo(AsyncWebServerRequest *request) {
     request->send(response);
 }
 
+bool WebUIPlugin::isControllerOTAAvailable() const {
+    return controller != nullptr && controller->getSettings().getCommMode() == COMM_MODE_BLE &&
+           controller->getClientController() != nullptr;
+}
+
 void WebUIPlugin::updateOTAStatus(const String &version) {
     Settings const &settings = controller->getSettings();
     JsonDocument doc;
+    bool controllerOTAAvailable = isControllerOTAAvailable();
     doc["latestVersion"] = ota->getCurrentVersion();
     doc["tp"] = "res:ota-settings";
     doc["displayUpdateAvailable"] = ota->isUpdateAvailable(false);
-    doc["controllerUpdateAvailable"] = ota->isUpdateAvailable(true);
+    doc["controllerUpdateAvailable"] = controllerOTAAvailable && ota->isUpdateAvailable(true);
+    doc["controllerOTAAvailable"] = controllerOTAAvailable;
     doc["displayVersion"] = BUILD_GIT_VERSION;
     doc["controllerVersion"] = controller->getSystemInfo().version;
     doc["hardware"] = controller->getSystemInfo().hardware;

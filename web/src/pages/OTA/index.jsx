@@ -159,6 +159,11 @@ export function OTA() {
                   </span>
                 )}
               </div>
+              {!formData.controllerOTAAvailable && (
+                <div className='text-xs opacity-70'>
+                  Controller OTA from the display is only available in BLE comm mode.
+                </div>
+              )}
             </div>
 
             <div className='flex flex-col space-y-4'>
@@ -236,7 +241,7 @@ export function OTA() {
               type='submit'
               name='update'
               className='btn btn-accent'
-              disabled={!formData.controllerUpdateAvailable || submitting}
+              disabled={!formData.controllerOTAAvailable || !formData.controllerUpdateAvailable || submitting}
               onClick={() => onUpdate('controller')}
             >
               Update Controller
