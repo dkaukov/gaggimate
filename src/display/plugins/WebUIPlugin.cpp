@@ -433,6 +433,8 @@ void WebUIPlugin::handleProfileRequest(uint32_t clientId, JsonDocument &request)
 void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     if (request->method() == HTTP_POST) {
         controller->getSettings().batchUpdate([request](Settings *settings) {
+            auto isValidSerialPin = [](int pin) { return pin == -1 || (pin >= 0 && pin <= 48); };
+
             if (request->hasArg("startupMode"))
                 settings->setStartupMode(request->arg("startupMode") == "brew" ? MODE_BREW : MODE_STANDBY);
             if (request->hasArg("targetSteamTemp"))
@@ -455,13 +457,21 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
                 int commMode = request->arg("commMode").toInt();
                 settings->setCommMode(commMode == COMM_MODE_SERIAL ? COMM_MODE_SERIAL : COMM_MODE_BLE);
             }
-            if (request->hasArg("serialRxPin"))
-                settings->setSerialRxPin(request->arg("serialRxPin").toInt());
-            if (request->hasArg("serialTxPin"))
-                settings->setSerialTxPin(request->arg("serialTxPin").toInt());
+            if (request->hasArg("serialRxPin")) {
+                int serialRxPin = request->arg("serialRxPin").toInt();
+                if (isValidSerialPin(serialRxPin)) {
+                    settings->setSerialRxPin(serialRxPin);
+                }
+            }
+            if (request->hasArg("serialTxPin")) {
+                int serialTxPin = request->arg("serialTxPin").toInt();
+                if (isValidSerialPin(serialTxPin)) {
+                    settings->setSerialTxPin(serialTxPin);
+                }
+            }
             if (request->hasArg("serialBaudRate")) {
                 int baudRate = request->arg("serialBaudRate").toInt();
-                if (baudRate > 0) {
+                if (baudRate >= 1200 && baudRate <= 2000000) {
                     settings->setSerialBaudRate(baudRate);
                 }
             }
