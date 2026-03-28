@@ -220,7 +220,8 @@ void GaggiMateController::registerCommCallbacks() {
             }
             this->valve->set(valve);
             this->heater->setSetpoint(heaterSetpoint);
-            if (!_config.capabilites.dimming) {
+            if (!_config.capabilites.dimming || !_config.capabilites.pressure) {
+                this->pump->setPower(0);
                 return;
             }
 #ifdef ESP32

@@ -30,6 +30,7 @@ Working now:
 - STM32 Lego V3 pressure support is now enabled in board config using the BlackPill default I2C pins (`PB7` SDA, `PB6` SCL), so the controller can instantiate the pressure sensor path instead of treating pressure as unsupported hardware.
 - Pressure capability is now only advertised after the ADS1115 pressure sensor initializes successfully at boot. If pressure-sensor bring-up fails, the controller logs the fault and drops pressure support for that boot instead of reporting a misleading half-working capability set.
 - Display-side volumetric availability no longer depends on `NIGHTLY_BUILD` for the serial controller path. When BLE scale data is unavailable, the display now allows controller-side flow estimation whenever the connected controller reports both `dimming` and `pressure` capabilities.
+- Advanced pressure/flow output-control messages now fail safe on the controller if pressure capability is unavailable, rather than reusing the dimmed-pump path under a mismatched capability set.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
