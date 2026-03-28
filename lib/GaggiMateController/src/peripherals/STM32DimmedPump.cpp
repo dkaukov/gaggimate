@@ -151,8 +151,12 @@ void STM32DimmedPump::setFiringDelay(float powerPercent) {
     // 100% power = minimum delay (fire immediately after zero-cross)
     // Inverse relationship: higher power = lower delay
 
-    float delayRange = MAX_FIRING_DELAY_US - MIN_FIRING_DELAY_US;
-    _firingDelayMicros = static_cast<uint32_t>(MAX_FIRING_DELAY_US - (powerPercent / 100.0f) * delayRange);
+    const uint32_t maxFiringDelayMicros =
+        _halfCycleMicros > TRIAC_PULSE_WIDTH_US ? (_halfCycleMicros - TRIAC_PULSE_WIDTH_US) : MIN_FIRING_DELAY_US;
+    const uint32_t clampedMaxDelay = max(maxFiringDelayMicros, static_cast<uint32_t>(MIN_FIRING_DELAY_US));
+    const float delayRange = static_cast<float>(clampedMaxDelay - MIN_FIRING_DELAY_US);
+    const float clampedPower = constrain(powerPercent, 0.0f, 100.0f);
+    _firingDelayMicros = static_cast<uint32_t>(clampedMaxDelay - (clampedPower / 100.0f) * delayRange);
 }
 
 float STM32DimmedPump::getCoffeeVolume() { return _pressureController.getCoffeeOutputEstimate(); }

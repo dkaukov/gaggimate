@@ -23,6 +23,7 @@ Working now:
 - The OTA page now marks controller OTA as unavailable in serial mode and the backend refuses controller-update requests unless the display is actually connected over BLE. This avoids offering a controller DFU flow that only works with the BLE bootloader path.
 - Controller-side ping timeout handling now latches once per timeout event instead of re-running the same heater/pump shutdown path every control loop after comms are already lost.
 - STM32 startup no longer inherits the full 5 second boot delay used on the ESP32 path; it now uses a short pause instead so serial comms and peripheral setup come up promptly on the BlackPill controller.
+- STM32 phase-angle timing now derives its maximum firing delay from the configured half-cycle length instead of a fixed 50 Hz-style ceiling, which keeps the timer math internally consistent for both 50 Hz and 60 Hz mains configurations.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
