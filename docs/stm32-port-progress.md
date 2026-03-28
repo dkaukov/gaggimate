@@ -22,6 +22,7 @@ Working now:
 - The display settings API now bounds-checks serial pin and baud-rate inputs before saving them, so obviously invalid UART values from the WebUI will be ignored instead of becoming persisted startup config.
 - Display-side BLE assumptions were reduced for serial mode: OTA setup now checks for a real BLE controller before dereferencing it, generic tare/LED commands go through the transport-agnostic comm client, and BLE-only UI elements no longer assume BLE exists when the display is using UART.
 - The OTA page now marks controller OTA as unavailable in serial mode and the backend refuses controller-update requests unless the display is actually connected over BLE. This avoids offering a controller DFU flow that only works with the BLE bootloader path.
+- Controller-side ping timeout handling now latches once per timeout event instead of re-running the same heater/pump shutdown path every control loop after comms are already lost.
 
 Known incomplete or risky:
 - `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
