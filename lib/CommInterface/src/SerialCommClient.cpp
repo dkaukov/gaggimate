@@ -25,6 +25,7 @@ void SerialCommClient::loop() {
     // Check connection timeout
     if (_connected && (millis() - _lastMessageTime > CONNECTION_TIMEOUT_MS)) {
         _connected = false;
+        _systemInfo = "";
     }
 
     // Process incoming data
@@ -41,21 +42,21 @@ void SerialCommClient::loop() {
 }
 
 bool SerialCommClient::connect() {
-    // For serial, connection is established when we receive valid data
-    // Request system info to initiate communication
-    sendFrame(SerialProtocol::MSG_REQUEST_INFO, "");
-    _lastInfoRequest = millis();
-
-    // Wait briefly for response
-    unsigned long startTime = millis();
-    while (millis() - startTime < 500) {
-        loop();
-        if (_connected && _systemInfo.length() > 0) {
-            return true;
-        }
-        delay(10);
+    if (!_initialized) {
+        return false;
     }
-    return _connected;
+
+    if (_connected && _systemInfo.length() > 0) {
+        return true;
+    }
+
+    // Serial discovery must stay non-blocking so the display loop remains responsive.
+    if (millis() - _lastInfoRequest >= INFO_REQUEST_INTERVAL_MS) {
+        sendFrame(SerialProtocol::MSG_REQUEST_INFO, "");
+        _lastInfoRequest = millis();
+    }
+
+    return _connected && _systemInfo.length() > 0;
 }
 
 bool SerialCommClient::isReadyForConnection() {

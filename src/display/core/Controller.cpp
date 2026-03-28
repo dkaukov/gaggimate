@@ -310,11 +310,19 @@ void Controller::loop() {
         commClient->loop();
     }
 
-    if (commClient->isReadyForConnection()) {
-        commClient->connect();
-        setupInfos();
-        pluginManager->trigger("controller:bluetooth:connect");
-        if (!loaded) {
+    if (commClient && loaded && !commClient->isConnected()) {
+        loaded = false;
+    }
+
+    if (commClient && commClient->isReadyForConnection()) {
+        bool connected = commClient->isConnected();
+        if (!connected) {
+            connected = commClient->connect();
+        }
+
+        if (connected && !loaded) {
+            setupInfos();
+            pluginManager->trigger("controller:bluetooth:connect");
             loaded = true;
             if (settings.getStartupMode() == MODE_STANDBY)
                 activateStandby();
