@@ -139,11 +139,20 @@ void SerialCommClient::processMessage(char type, const String &payload) {
         if (countTokens(payload, ',') != 5) {
             break;
         }
-        float temperature = getToken(payload, 0, ',').toFloat();
-        float pressure = getToken(payload, 1, ',').toFloat();
-        float puckFlow = getToken(payload, 2, ',').toFloat();
-        float pumpFlow = getToken(payload, 3, ',').toFloat();
-        float puckResistance = getToken(payload, 4, ',').toFloat();
+        String temperatureToken = getToken(payload, 0, ',');
+        String pressureToken = getToken(payload, 1, ',');
+        String puckFlowToken = getToken(payload, 2, ',');
+        String pumpFlowToken = getToken(payload, 3, ',');
+        String puckResistanceToken = getToken(payload, 4, ',');
+        if (!isNumericToken(temperatureToken) || !isNumericToken(pressureToken) || !isNumericToken(puckFlowToken) ||
+            !isNumericToken(pumpFlowToken) || !isNumericToken(puckResistanceToken)) {
+            break;
+        }
+        float temperature = temperatureToken.toFloat();
+        float pressure = pressureToken.toFloat();
+        float puckFlow = puckFlowToken.toFloat();
+        float pumpFlow = pumpFlowToken.toFloat();
+        float puckResistance = puckResistanceToken.toFloat();
         if (_sensorCallback) {
             _sensorCallback(temperature, pressure, puckFlow, pumpFlow, puckResistance);
         }
@@ -151,6 +160,9 @@ void SerialCommClient::processMessage(char type, const String &payload) {
     }
 
     case MSG_ERROR: {
+        if (!isNumericToken(payload, false)) {
+            break;
+        }
         int errorCode = payload.toInt();
         if (_remoteErrorCallback) {
             _remoteErrorCallback(errorCode);
@@ -159,7 +171,10 @@ void SerialCommClient::processMessage(char type, const String &payload) {
     }
 
     case MSG_BREW_BTN: {
-        bool brewButtonStatus = payload.toInt() == 1;
+        if (!isBoolToken(payload)) {
+            break;
+        }
+        bool brewButtonStatus = payload == "1";
         if (_brewBtnCallback) {
             _brewBtnCallback(brewButtonStatus);
         }
@@ -167,7 +182,10 @@ void SerialCommClient::processMessage(char type, const String &payload) {
     }
 
     case MSG_STEAM_BTN: {
-        bool steamButtonStatus = payload.toInt() == 1;
+        if (!isBoolToken(payload)) {
+            break;
+        }
+        bool steamButtonStatus = payload == "1";
         if (_steamBtnCallback) {
             _steamBtnCallback(steamButtonStatus);
         }
@@ -183,12 +201,21 @@ void SerialCommClient::processMessage(char type, const String &payload) {
         if (countTokens(payload, ',') < 3) {
             break;
         }
-        float Kp = getToken(payload, 0, ',').toFloat();
-        float Ki = getToken(payload, 1, ',').toFloat();
-        float Kd = getToken(payload, 2, ',').toFloat();
+        String kpToken = getToken(payload, 0, ',');
+        String kiToken = getToken(payload, 1, ',');
+        String kdToken = getToken(payload, 2, ',');
+        if (!isNumericToken(kpToken) || !isNumericToken(kiToken) || !isNumericToken(kdToken)) {
+            break;
+        }
+        float Kp = kpToken.toFloat();
+        float Ki = kiToken.toFloat();
+        float Kd = kdToken.toFloat();
         float Kf = 0.0f;
         String kfToken = getToken(payload, 3, ',');
         if (kfToken.length() > 0) {
+            if (!isNumericToken(kfToken)) {
+                break;
+            }
             Kf = kfToken.toFloat();
         }
         if (_autotuneResultCallback) {
@@ -198,6 +225,9 @@ void SerialCommClient::processMessage(char type, const String &payload) {
     }
 
     case MSG_VOLUMETRIC: {
+        if (!isNumericToken(payload)) {
+            break;
+        }
         float value = payload.toFloat();
         if (_volumetricMeasurementCallback) {
             _volumetricMeasurementCallback(value);
@@ -206,6 +236,9 @@ void SerialCommClient::processMessage(char type, const String &payload) {
     }
 
     case MSG_TOF: {
+        if (!isNumericToken(payload, false)) {
+            break;
+        }
         int value = payload.toInt();
         if (_tofMeasurementCallback) {
             _tofMeasurementCallback(value);

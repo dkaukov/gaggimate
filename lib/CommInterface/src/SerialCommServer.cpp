@@ -91,16 +91,27 @@ void SerialCommServer::processMessage(char type, const String &payload) {
             break;
         }
 
-        uint8_t controlType = getToken(payload, 0, ',').toInt();
-        uint8_t valve = getToken(payload, 1, ',').toInt();
-        float boilerSetpoint = getToken(payload, 3, ',').toFloat();
+        String controlTypeToken = getToken(payload, 0, ',');
+        String valveToken = getToken(payload, 1, ',');
+        String boilerSetpointToken = getToken(payload, 3, ',');
+        if (!isNumericToken(controlTypeToken, false) || !isBoolToken(valveToken) || !isNumericToken(boilerSetpointToken)) {
+            break;
+        }
+
+        uint8_t controlType = controlTypeToken.toInt();
+        uint8_t valve = valveToken.toInt();
+        float boilerSetpoint = boilerSetpointToken.toFloat();
 
         if (controlType == 0) {
             if (tokenCount != 4) {
                 break;
             }
             // Simple output control
-            float pumpSetpoint = getToken(payload, 2, ',').toFloat();
+            String pumpSetpointToken = getToken(payload, 2, ',');
+            if (!isNumericToken(pumpSetpointToken)) {
+                break;
+            }
+            float pumpSetpoint = pumpSetpointToken.toFloat();
             if (_outputControlCallback) {
                 _outputControlCallback(valve == 1, pumpSetpoint, boilerSetpoint);
             }
@@ -109,9 +120,15 @@ void SerialCommServer::processMessage(char type, const String &payload) {
                 break;
             }
             // Advanced output control
-            bool pressureTarget = getToken(payload, 4, ',').toInt() == 1;
-            float pumpPressure = getToken(payload, 5, ',').toFloat();
-            float pumpFlow = getToken(payload, 6, ',').toFloat();
+            String pressureTargetToken = getToken(payload, 4, ',');
+            String pumpPressureToken = getToken(payload, 5, ',');
+            String pumpFlowToken = getToken(payload, 6, ',');
+            if (!isBoolToken(pressureTargetToken) || !isNumericToken(pumpPressureToken) || !isNumericToken(pumpFlowToken)) {
+                break;
+            }
+            bool pressureTarget = pressureTargetToken == "1";
+            float pumpPressure = pumpPressureToken.toFloat();
+            float pumpFlow = pumpFlowToken.toFloat();
             if (_advancedControlCallback) {
                 _advancedControlCallback(valve == 1, boilerSetpoint, pressureTarget, pumpPressure, pumpFlow);
             }
@@ -120,6 +137,9 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_ALT_CONTROL: {
+        if (!isBoolToken(payload)) {
+            break;
+        }
         bool pinState = payload == "1";
         if (_altControlCallback) {
             _altControlCallback(pinState);
@@ -138,12 +158,21 @@ void SerialCommServer::processMessage(char type, const String &payload) {
         if (countTokens(payload, ',') < 3) {
             break;
         }
-        float Kp = getToken(payload, 0, ',').toFloat();
-        float Ki = getToken(payload, 1, ',').toFloat();
-        float Kd = getToken(payload, 2, ',').toFloat();
+        String kpToken = getToken(payload, 0, ',');
+        String kiToken = getToken(payload, 1, ',');
+        String kdToken = getToken(payload, 2, ',');
+        if (!isNumericToken(kpToken) || !isNumericToken(kiToken) || !isNumericToken(kdToken)) {
+            break;
+        }
+        float Kp = kpToken.toFloat();
+        float Ki = kiToken.toFloat();
+        float Kd = kdToken.toFloat();
         float Kf = 0.0f;
         String kfToken = getToken(payload, 3, ',');
-        if (kfToken.length() > 0 && kfToken.toFloat() > 0.0f) {
+        if (kfToken.length() > 0) {
+            if (!isNumericToken(kfToken)) {
+                break;
+            }
             Kf = kfToken.toFloat();
         }
         if (_pidControlCallback) {
@@ -156,8 +185,13 @@ void SerialCommServer::processMessage(char type, const String &payload) {
         if (countTokens(payload, ',') < 2) {
             break;
         }
-        float a = getToken(payload, 0, ',').toFloat();
-        float b = getToken(payload, 1, ',').toFloat();
+        String aToken = getToken(payload, 0, ',');
+        String bToken = getToken(payload, 1, ',');
+        if (!isNumericToken(aToken) || !isNumericToken(bToken)) {
+            break;
+        }
+        float a = aToken.toFloat();
+        float b = bToken.toFloat();
         float c = getToken(payload, 2, ',', "nan").toFloat();
         float d = getToken(payload, 3, ',', "nan").toFloat();
         if (_pumpModelCoeffsCallback) {
@@ -170,8 +204,13 @@ void SerialCommServer::processMessage(char type, const String &payload) {
         if (countTokens(payload, ',') != 2) {
             break;
         }
-        int testTime = getToken(payload, 0, ',').toInt();
-        int samples = getToken(payload, 1, ',').toInt();
+        String testTimeToken = getToken(payload, 0, ',');
+        String samplesToken = getToken(payload, 1, ',');
+        if (!isNumericToken(testTimeToken, false) || !isNumericToken(samplesToken, false)) {
+            break;
+        }
+        int testTime = testTimeToken.toInt();
+        int samples = samplesToken.toInt();
         if (_autotuneCallback) {
             _autotuneCallback(testTime, samples);
         }
@@ -179,6 +218,9 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_PRESSURE_SCALE: {
+        if (!isNumericToken(payload)) {
+            break;
+        }
         float scale = payload.toFloat();
         if (_pressureScaleCallback) {
             _pressureScaleCallback(scale);
@@ -197,8 +239,13 @@ void SerialCommServer::processMessage(char type, const String &payload) {
         if (countTokens(payload, ',') != 2) {
             break;
         }
-        uint8_t channel = getToken(payload, 0, ',').toInt();
-        uint8_t brightness = getToken(payload, 1, ',').toInt();
+        String channelToken = getToken(payload, 0, ',');
+        String brightnessToken = getToken(payload, 1, ',');
+        if (!isNumericToken(channelToken, false) || !isNumericToken(brightnessToken, false)) {
+            break;
+        }
+        uint8_t channel = channelToken.toInt();
+        uint8_t brightness = brightnessToken.toInt();
         if (_ledControlCallback) {
             _ledControlCallback(channel, brightness);
         }

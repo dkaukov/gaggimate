@@ -290,6 +290,34 @@ inline size_t countTokens(const String &from, char separator) {
     return count;
 }
 
+inline bool isNumericToken(const String &token, bool allowDecimal = true, bool allowSign = true) {
+    if (token.length() == 0) {
+        return false;
+    }
+
+    bool hasDigit = false;
+    bool hasDecimal = false;
+    for (size_t i = 0; i < token.length(); i++) {
+        char c = token.charAt(i);
+        if (allowSign && i == 0 && (c == '-' || c == '+')) {
+            continue;
+        }
+        if (allowDecimal && c == '.' && !hasDecimal) {
+            hasDecimal = true;
+            continue;
+        }
+        if (c >= '0' && c <= '9') {
+            hasDigit = true;
+            continue;
+        }
+        return false;
+    }
+
+    return hasDigit;
+}
+
+inline bool isBoolToken(const String &token) { return token == "0" || token == "1"; }
+
 } // namespace SerialProtocol
 
 #endif // SERIALPROTOCOL_H
