@@ -126,6 +126,8 @@ void GaggiMateController::setup() {
 #else
     // STM32 addon probing is only valid when the board config defines addon I2C pins.
     if (_config.sunriseSdaPin != 0 && _config.sunriseSclPin != 0) {
+        Wire.setSDA(_config.sunriseSdaPin);
+        Wire.setSCL(_config.sunriseSclPin);
         Wire.begin();
         addonBusAvailable = true;
     } else {

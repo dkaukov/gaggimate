@@ -17,6 +17,7 @@ Working now:
 - Serial PID, autotune-result, and pump-model messages now require exact supported field counts instead of accepting trailing or partially-shaped CSV payloads.
 - Digital input polling now initializes from the live pin state and applies a simple debounce window at a 20 ms poll interval, reducing the chance of stray brew/steam button transitions.
 - STM32 startup now skips addon I2C probing when the selected board config does not define addon bus pins, avoiding blind LED/ToF probing on unsupported wiring.
+- STM32 addon I2C setup now applies the configured SDA/SCL pins before `Wire.begin()`, so future addon-capable STM32 board configs no longer depend on whatever the core happens to pick as default I2C pins.
 - STM32 logging no longer writes to generic `Serial` by default. On the BlackPill core, generic `Serial` maps to `Serial1`, which is also the controller/display UART, so leaving logs enabled there would corrupt the serial protocol.
 - Display-side settings still expose controller communication mode, serial RX/TX pins, and baud rate through `/api/settings`, but these transport controls have been removed from the normal WebUI settings page. They remain available as backend/NVS configuration for porting and recovery use without advertising them as everyday user settings.
 - The display settings API now bounds-checks serial pin and baud-rate inputs before saving them, so obviously invalid UART values from the WebUI will be ignored instead of becoming persisted startup config.
