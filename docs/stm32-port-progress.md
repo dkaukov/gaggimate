@@ -17,6 +17,7 @@ Working now:
 - Digital input polling now initializes from the live pin state and applies a simple debounce window at a 20 ms poll interval, reducing the chance of stray brew/steam button transitions.
 - STM32 startup now skips addon I2C probing when the selected board config does not define addon bus pins, avoiding blind LED/ToF probing on unsupported wiring.
 - STM32 addon I2C setup now applies the configured SDA/SCL pins before `Wire.begin()`, so future addon-capable STM32 board configs no longer depend on whatever the core happens to pick as default I2C pins.
+- The STM32 controller build now enables a bench-only USB CDC monitor behind `STM32_USB_BENCH_MONITOR`. Over `SerialUSB`, it can override raw pump output with simple commands like `pump 25`, `status`, and `off`, with an automatic 5 second timeout back to safe outputs.
 - STM32 logging no longer writes to generic `Serial` by default. On the BlackPill core, generic `Serial` maps to `Serial1`, which is also the controller/display UART, so leaving logs enabled there would corrupt the serial protocol.
 - Display-side settings still expose controller communication mode, serial RX/TX pins, and baud rate through `/api/settings`, but these transport controls have been removed from the normal WebUI settings page. They remain available as backend/NVS configuration for porting and recovery use without advertising them as everyday user settings.
 - The display settings API now bounds-checks serial pin and baud-rate inputs before saving them, so obviously invalid UART values from the WebUI will be ignored instead of becoming persisted startup config.
@@ -42,6 +43,7 @@ Known incomplete or risky:
 - Confirm the STM32 zero-cross input produces the expected once-per-half-cycle interrupt cadence on the actual hardware.
 - Confirm the burst-fire output holds the SSR in the expected on/off state across whole AC cycles and follows the same skip pattern as the original ESP32 behavior.
 - Verify behavior at low, medium, and high pump power, especially during startup and rapid setpoint changes.
+- Use the STM32 USB bench monitor for fixed-output tests instead of normal brew/steam UI flows, since the monitor sends direct raw pump percentages without involving profile or advanced flow-control logic.
 
 ### 2. Stabilize serial transport
 - Keep the non-blocking handshake introduced in `096301b6`.

@@ -44,6 +44,13 @@ class GaggiMateController {
      */
     void setCommServer(ICommServer *comm);
 
+#ifdef STM32_USB_BENCH_MONITOR
+    void benchSetPumpPower(float pumpPercent);
+    void benchDisableOverride();
+    bool isBenchOverrideActive() const { return benchOverrideActive; }
+    String getBenchDebugStatus() const;
+#endif
+
   private:
     void setupCommunication();
     void detectBoard();
@@ -76,6 +83,13 @@ class GaggiMateController {
     String _version;
     unsigned long lastPingTime = 0;
     size_t errorState = COMM_ERROR_CODE_NONE;
+
+#ifdef STM32_USB_BENCH_MONITOR
+    bool benchOverrideActive = false;
+    float benchPumpPower = 0.0f;
+    unsigned long benchOverrideDeadline = 0;
+    static constexpr unsigned long BENCH_OVERRIDE_TIMEOUT_MS = 5000;
+#endif
 
     const char *LOG_TAG = "GaggiMateController";
 };

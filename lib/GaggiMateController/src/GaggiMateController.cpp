@@ -198,6 +198,11 @@ void GaggiMateController::registerCommCallbacks() {
         if (errorState != COMM_ERROR_CODE_NONE) {
             return;
         }
+#ifdef STM32_USB_BENCH_MONITOR
+        if (benchOverrideActive) {
+            return;
+        }
+#endif
         this->pump->setPower(pumpSetpoint);
         this->valve->set(valve);
         this->heater->setSetpoint(heaterSetpoint);
@@ -218,6 +223,11 @@ void GaggiMateController::registerCommCallbacks() {
             if (errorState != COMM_ERROR_CODE_NONE) {
                 return;
             }
+#ifdef STM32_USB_BENCH_MONITOR
+            if (benchOverrideActive) {
+                return;
+            }
+#endif
             this->valve->set(valve);
             this->heater->setSetpoint(heaterSetpoint);
             if (!_config.capabilites.dimming || !_config.capabilites.pressure) {
@@ -237,7 +247,14 @@ void GaggiMateController::registerCommCallbacks() {
             dimmedPump->setValveState(valve);
         });
 
-    _comm->registerAltControlCallback([this](bool state) { this->alt->set(state); });
+    _comm->registerAltControlCallback([this](bool state) {
+#ifdef STM32_USB_BENCH_MONITOR
+        if (benchOverrideActive) {
+            return;
+        }
+#endif
+        this->alt->set(state);
+    });
 
     _comm->registerPidControlCallback([this](float Kp, float Ki, float Kd, float Kf) {
         this->heater->setTunings(Kp, Ki, Kd);
@@ -290,6 +307,12 @@ void GaggiMateController::loop() {
     }
 
     unsigned long now = millis();
+#ifdef STM32_USB_BENCH_MONITOR
+    if (benchOverrideActive && now > benchOverrideDeadline) {
+        LOG_W(LOG_TAG, "USB bench override timed out, disabling outputs");
+        benchDisableOverride();
+    }
+#endif
     if (lastPingTime < now && (now - lastPingTime) / 1000 > PING_TIMEOUT_SECONDS) {
         handlePingTimeout();
     }
@@ -388,3 +411,52 @@ void GaggiMateController::sendSensorData() {
         _comm->sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f);
     }
 }
+
+#ifdef STM32_USB_BENCH_MONITOR
+void GaggiMateController::benchSetPumpPower(float pumpPercent) {
+    benchOverrideActive = true;
+    benchOverrideDeadline = millis() + BENCH_OVERRIDE_TIMEOUT_MS;
+    benchPumpPower = constrain(pumpPercent, 0.0f, 100.0f);
+
+    if (heater != nullptr) {
+        heater->setSetpoint(0.0f);
+    }
+    if (valve != nullptr) {
+        valve->set(false);
+    }
+    if (alt != nullptr) {
+        alt->set(false);
+    }
+    if (pump != nullptr) {
+        pump->setPower(benchPumpPower);
+    }
+}
+
+void GaggiMateController::benchDisableOverride() {
+    benchOverrideActive = false;
+    benchPumpPower = 0.0f;
+    benchOverrideDeadline = 0;
+
+    if (heater != nullptr) {
+        heater->setSetpoint(0.0f);
+    }
+    if (valve != nullptr) {
+        valve->set(false);
+    }
+    if (alt != nullptr) {
+        alt->set(false);
+    }
+    if (pump != nullptr) {
+        pump->setPower(0.0f);
+    }
+}
+
+String GaggiMateController::getBenchDebugStatus() const {
+    String status = String("bench=") + (benchOverrideActive ? "on" : "off");
+    status += ",pump=" + String(benchPumpPower, 1);
+    status += ",temp=" + String(thermocouple != nullptr ? thermocouple->read() : 0.0f, 2);
+    status += ",pressure=" + String(pressureSensor != nullptr ? pressureSensor->getPressure() : 0.0f, 2);
+    status += ",error=" + String(errorState);
+    return status;
+}
+#endif
