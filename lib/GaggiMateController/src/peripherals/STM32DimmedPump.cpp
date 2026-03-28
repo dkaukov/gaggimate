@@ -6,19 +6,11 @@
 
 // Static instance pointer for ISR
 STM32DimmedPump *STM32DimmedPump::_instance = nullptr;
-HardwareTimer *STM32DimmedPump::_timer = nullptr;
 
 STM32DimmedPump::STM32DimmedPump(uint8_t ssrPin, uint8_t zeroCrossPin, PressureSensor *pressureSensor,
                                  uint8_t acFrequency)
     : _ssrPin(ssrPin), _zeroCrossPin(zeroCrossPin), _acFrequency(acFrequency), _pressureSensor(pressureSensor),
       _pressureController(0.03f, &_ctrlPressure, &_ctrlFlow, &_currentPressure, &_controllerPower, &_valveStatus) {
-
-    // Calculate half-cycle duration based on AC frequency
-    // 50Hz: 10000us per half-cycle
-    // 60Hz: 8333us per half-cycle
-    _halfCycleMicros = 1000000UL / (2 * _acFrequency);
-    _firingDelayMicros = _halfCycleMicros; // Start at 0% power (max delay)
-
     _instance = this;
 }
 
@@ -33,30 +25,15 @@ void STM32DimmedPump::setup() {
     // Setup zero-cross interrupt
     setupZeroCrossInterrupt();
 
-    // Setup timer for firing delay
-    setupTimer();
-
     // Start the control loop task
     xTaskCreate(loopTask, "STM32DimmedPump::loop", configMINIMAL_STACK_SIZE * 4, this, 1, &taskHandle);
 
-    LOG_I(LOG_TAG, "STM32 Dimmed Pump initialized, AC freq: %dHz, half-cycle: %luus", _acFrequency, _halfCycleMicros);
+    LOG_I(LOG_TAG, "STM32 Dimmed Pump initialized in burst-fire mode, AC freq: %dHz", _acFrequency);
 }
 
 void STM32DimmedPump::setupZeroCrossInterrupt() {
     // Attach interrupt on falling edge (zero-cross detection)
     attachInterrupt(digitalPinToInterrupt(_zeroCrossPin), zeroCrossISR, FALLING);
-}
-
-void STM32DimmedPump::setupTimer() {
-    if (_timer == nullptr) {
-        _timer = new HardwareTimer(TIM2);
-    }
-
-    _timer->pause();
-    _timer->setOverflow(_halfCycleMicros, MICROSEC_FORMAT);
-    _timer->attachInterrupt(timerISR);
-    _timer->setCount(0, MICROSEC_FORMAT);
-    _timer->refresh();
 }
 
 void STM32DimmedPump::zeroCrossISR() {
@@ -66,47 +43,47 @@ void STM32DimmedPump::zeroCrossISR() {
 }
 
 void STM32DimmedPump::onZeroCross() {
-    _lastZeroCross = micros();
-
-    if (_power > 0.0f && _firingDelayMicros < (_halfCycleMicros - TRIAC_PULSE_WIDTH_US)) {
-        _pendingFire = true;
-        _timerPhase = TimerPhase::WAIT_FIRE;
-        if (_timer != nullptr) {
-            _timer->pause();
-            _timer->setOverflow(_firingDelayMicros, MICROSEC_FORMAT);
-            _timer->setCount(0, MICROSEC_FORMAT);
-            _timer->refresh();
-            _timer->resume();
-        }
-    }
-}
-
-void STM32DimmedPump::onTimerFire() {
-    if (_timer != nullptr) {
-        _timer->pause();
-    }
-
-    if (_timerPhase == TimerPhase::WAIT_FIRE) {
-        digitalWrite(_ssrPin, HIGH);
-        _timerPhase = TimerPhase::PULSE_ACTIVE;
-        if (_timer != nullptr) {
-            _timer->setOverflow(TRIAC_PULSE_WIDTH_US, MICROSEC_FORMAT);
-            _timer->setCount(0, MICROSEC_FORMAT);
-            _timer->refresh();
-            _timer->resume();
-        }
+    unsigned long now = millis();
+    if (_lastInterruptMillis > 0 && (now - _lastInterruptMillis) < MIN_INTERRUPT_DIFF_MS) {
         return;
     }
+    _lastInterruptMillis = now;
 
-    digitalWrite(_ssrPin, LOW);
-    _pendingFire = false;
-    _timerPhase = TimerPhase::IDLE;
+    if (_dividerCounter >= _divider - 1) {
+        _dividerCounter -= _divider - 1;
+        calculateSkip();
+    } else {
+        _dividerCounter++;
+    }
 }
 
-void STM32DimmedPump::timerISR() {
-    if (_instance) {
-        _instance->onTimerFire();
+void STM32DimmedPump::calculateSkip() {
+    _accumulator += _burstValue;
+
+    if (_accumulator >= _range) {
+        _accumulator -= _range;
+        _skip = false;
+    } else {
+        _skip = true;
     }
+
+    if (_accumulator > _range) {
+        _accumulator = 0;
+        _skip = false;
+    }
+
+    if (!_skip) {
+        _cycleCounter++;
+    }
+
+    updateControl();
+}
+
+void STM32DimmedPump::updateControl() { digitalWrite(_ssrPin, _skip ? LOW : HIGH); }
+
+void STM32DimmedPump::applyBurstValue(float powerPercent) {
+    const float clampedPower = constrain(powerPercent, 0.0f, 100.0f);
+    _burstValue = static_cast<unsigned int>(clampedPower);
 }
 
 void STM32DimmedPump::loop() {
@@ -131,32 +108,12 @@ void STM32DimmedPump::setPower(float setpoint) {
 
     if (_power == 0.0f) {
         _currentFlow = 0.0f;
-        _firingDelayMicros = _halfCycleMicros; // Max delay = 0% power
-        _pendingFire = false;
-        _timerPhase = TimerPhase::IDLE;
-        if (_timer != nullptr) {
-            _timer->pause();
-            _timer->setCount(0, MICROSEC_FORMAT);
-            _timer->refresh();
-        }
+        _burstValue = 0;
+        _skip = true;
         digitalWrite(_ssrPin, LOW);
     } else {
-        setFiringDelay(_power);
+        applyBurstValue(_power);
     }
-}
-
-void STM32DimmedPump::setFiringDelay(float powerPercent) {
-    // Convert power percentage to firing delay
-    // 0% power = maximum delay (fire at end of half-cycle, almost no conduction)
-    // 100% power = minimum delay (fire immediately after zero-cross)
-    // Inverse relationship: higher power = lower delay
-
-    const uint32_t maxFiringDelayMicros =
-        _halfCycleMicros > TRIAC_PULSE_WIDTH_US ? (_halfCycleMicros - TRIAC_PULSE_WIDTH_US) : MIN_FIRING_DELAY_US;
-    const uint32_t clampedMaxDelay = max(maxFiringDelayMicros, static_cast<uint32_t>(MIN_FIRING_DELAY_US));
-    const float delayRange = static_cast<float>(clampedMaxDelay - MIN_FIRING_DELAY_US);
-    const float clampedPower = constrain(powerPercent, 0.0f, 100.0f);
-    _firingDelayMicros = static_cast<uint32_t>(clampedMaxDelay - (clampedPower / 100.0f) * delayRange);
 }
 
 float STM32DimmedPump::getCoffeeVolume() { return _pressureController.getCoffeeOutputEstimate(); }
@@ -185,7 +142,7 @@ void STM32DimmedPump::updatePower() {
     _pressureController.update(static_cast<PressureController::ControlMode>(_mode));
     if (_mode != ControlMode::POWER) {
         _power = _controllerPower;
-        setFiringDelay(_power);
+        applyBurstValue(_power);
     }
 }
 

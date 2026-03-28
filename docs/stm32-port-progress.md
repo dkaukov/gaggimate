@@ -10,8 +10,7 @@ Working now:
 - `display-sunton43` builds successfully.
 - STM32 entrypoint, board config, serial transport, heater path, valve path, alt relay path, button path, and MAX6675 thermocouple path are wired.
 - Serial display handshake was hardened in commit `096301b6 fix: harden serial display handshake`.
-- `STM32DimmedPump` now uses an STM32 `HardwareTimer` (`TIM2`) to schedule triac firing from zero-cross instead of relying on a 30 ms polling loop. This is a meaningful safety improvement, but it still needs oscilloscope validation on real hardware.
-- The triac gate pulse is now timer-driven in two phases (`wait-to-fire` then `pulse-active`) rather than using a blocking `delayMicroseconds()` inside the timer callback.
+- `STM32DimmedPump` now follows the original ESP32 `PSM` model again: zero-cross driven burst-fire / cycle-skipping across full AC cycles, rather than delayed phase-angle firing inside each half-cycle.
 - Serial payload handling now rejects malformed sensor, autotune, output-control, PID, pump-model, autotune-start, and LED-control payloads before applying them.
 - Serial parsing now also validates numeric and boolean field contents before calling `toInt()` / `toFloat()`, so malformed payloads can no longer silently turn into zero-valued commands or button states.
 - Serial PID, autotune-result, and pump-model messages now require exact supported field counts instead of accepting trailing or partially-shaped CSV payloads.
@@ -33,16 +32,16 @@ Working now:
 - Advanced pressure/flow output-control messages now fail safe on the controller if pressure capability is unavailable, rather than reusing the dimmed-pump path under a mismatched capability set.
 
 Known incomplete or risky:
-- `STM32DimmedPump` is now software-structured correctly around `HardwareTimer`, but it remains unproven on real mains hardware until zero-cross and gate timing are checked on a scope.
+- `STM32DimmedPump` now matches the original burst-fire control model more closely, but it still needs real-hardware validation to confirm the zero-cross detector cadence and cycle-skipping behavior are clean on the STM32 wiring.
 - STM32 pressure support is enabled in software, but the real sensor wiring, calibration, and pressure-to-volumetric behavior still need hardware validation on an actual Lego V3 machine.
 - `detectAddon()` is still a TODO.
 - STM32 I2C addon path uses generic `Wire.begin()` only; pin mapping and electrical behavior are not verified.
 
 ## Priority Plan
 ### 1. Validate pump dimming on real hardware
-- Confirm the new `HardwareTimer` path produces stable fire delays at low, medium, and high power.
-- Confirm the gate pulse width is sufficient for reliable latching and does not repeat within the same half-cycle.
-- Verify behavior at both startup and mode transitions where pump power changes quickly.
+- Confirm the STM32 zero-cross input produces the expected once-per-half-cycle interrupt cadence on the actual hardware.
+- Confirm the burst-fire output holds the SSR in the expected on/off state across whole AC cycles and follows the same skip pattern as the original ESP32 behavior.
+- Verify behavior at low, medium, and high pump power, especially during startup and rapid setpoint changes.
 
 ### 2. Stabilize serial transport
 - Keep the non-blocking handshake introduced in `096301b6`.
@@ -66,7 +65,7 @@ Known incomplete or risky:
 - If hot-switching comm mode is needed later, add explicit transport reinitialization instead of relying on restart.
 
 ## Real Hardware Test Order
-1. Scope zero-cross input and triac gate output at several power levels.
+1. Scope zero-cross input and SSR control output at several power levels.
 2. Verify UART disconnect fails safe: heater off, pump off, valve closed, alt off.
 3. Verify display boot ordering: display first, controller first, reconnect after unplug.
 4. Verify thermocouple fault handling and startup behavior.
@@ -74,6 +73,6 @@ Known incomplete or risky:
 
 ## Suggested Next Session Start
 1. Re-open `lib/GaggiMateController/src/peripherals/STM32DimmedPump.cpp`.
-2. Prepare a scope-based validation checklist for zero-cross and gate timing.
+2. Prepare a scope-based validation checklist for zero-cross cadence and burst-fire output state.
 3. Flash `controller-stm32-gaggiuino-lego-v3` and capture traces at several pump levels.
 4. If timing is stable, move to pressure-sensor and volumetric validation on real hardware.
