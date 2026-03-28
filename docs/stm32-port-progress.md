@@ -14,6 +14,7 @@ Working now:
 - The triac gate pulse is now timer-driven in two phases (`wait-to-fire` then `pulse-active`) rather than using a blocking `delayMicroseconds()` inside the timer callback.
 - Serial payload handling now rejects malformed sensor, autotune, output-control, PID, pump-model, autotune-start, and LED-control payloads before applying them.
 - Serial parsing now also validates numeric and boolean field contents before calling `toInt()` / `toFloat()`, so malformed payloads can no longer silently turn into zero-valued commands or button states.
+- Serial PID, autotune-result, and pump-model messages now require exact supported field counts instead of accepting trailing or partially-shaped CSV payloads.
 - Digital input polling now initializes from the live pin state and applies a simple debounce window at a 20 ms poll interval, reducing the chance of stray brew/steam button transitions.
 - STM32 startup now skips addon I2C probing when the selected board config does not define addon bus pins, avoiding blind LED/ToF probing on unsupported wiring.
 - STM32 logging no longer writes to generic `Serial` by default. On the BlackPill core, generic `Serial` maps to `Serial1`, which is also the controller/display UART, so leaving logs enabled there would corrupt the serial protocol.

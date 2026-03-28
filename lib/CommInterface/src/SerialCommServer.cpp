@@ -155,7 +155,8 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_PID_SETTINGS: {
-        if (countTokens(payload, ',') < 3) {
+        size_t tokenCount = countTokens(payload, ',');
+        if (tokenCount != 3 && tokenCount != 4) {
             break;
         }
         String kpToken = getToken(payload, 0, ',');
@@ -182,7 +183,8 @@ void SerialCommServer::processMessage(char type, const String &payload) {
     }
 
     case MSG_PUMP_MODEL: {
-        if (countTokens(payload, ',') < 2) {
+        size_t tokenCount = countTokens(payload, ',');
+        if (tokenCount != 2 && tokenCount != 4) {
             break;
         }
         String aToken = getToken(payload, 0, ',');
@@ -192,8 +194,17 @@ void SerialCommServer::processMessage(char type, const String &payload) {
         }
         float a = aToken.toFloat();
         float b = bToken.toFloat();
-        float c = getToken(payload, 2, ',', "nan").toFloat();
-        float d = getToken(payload, 3, ',', "nan").toFloat();
+        float c = NAN;
+        float d = NAN;
+        if (tokenCount == 4) {
+            String cToken = getToken(payload, 2, ',');
+            String dToken = getToken(payload, 3, ',');
+            if (!isNumericToken(cToken) || !isNumericToken(dToken)) {
+                break;
+            }
+            c = cToken.toFloat();
+            d = dToken.toFloat();
+        }
         if (_pumpModelCoeffsCallback) {
             _pumpModelCoeffsCallback(a, b, c, d);
         }

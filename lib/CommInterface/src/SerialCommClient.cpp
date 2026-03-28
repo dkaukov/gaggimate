@@ -198,7 +198,8 @@ void SerialCommClient::processMessage(char type, const String &payload) {
     }
 
     case MSG_AUTOTUNE_RESULT: {
-        if (countTokens(payload, ',') < 3) {
+        size_t tokenCount = countTokens(payload, ',');
+        if (tokenCount != 3 && tokenCount != 4) {
             break;
         }
         String kpToken = getToken(payload, 0, ',');
