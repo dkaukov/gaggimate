@@ -22,7 +22,7 @@ PressureSensor::PressureSensor(uint8_t sda_pin, uint8_t scl_pin, const pressure_
     _pressure_step = pressure_scale / _pressure_adc_range;
 }
 
-void PressureSensor::setup() {
+bool PressureSensor::setup() {
 #ifdef ESP32
     Wire1.begin(_sda_pin, _scl_pin);
     LOG_V(LOG_TAG, "Initializing pressure sensor on SDA: %d, SCL: %d", _sda_pin, _scl_pin);
@@ -39,16 +39,20 @@ void PressureSensor::setup() {
 #endif
     if (!ads->begin()) {
         LOG_E(LOG_TAG, "Failed to initialize ADS1115");
+        _available = false;
+        return false;
     }
+    _available = true;
     ads->setGain(0);
     ads->setDataRate(4);
     ads->setMode(0);
     ads->readADC(0);
     xTaskCreate(loopTask, "Heater::loop", configMINIMAL_STACK_SIZE * 4, this, 1, &taskHandle);
+    return true;
 }
 
 void PressureSensor::loop() {
-    if (ads->isConnected()) {
+    if (_available && ads->isConnected()) {
         int16_t reading = ads->readADC();
         reading = reading - _adc_floor;
         float pressure = reading * _pressure_step;

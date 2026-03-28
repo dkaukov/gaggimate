@@ -26,6 +26,7 @@ Working now:
 - STM32 phase-angle timing now derives its maximum firing delay from the configured half-cycle length instead of a fixed 50 Hz-style ceiling, which keeps the timer math internally consistent for both 50 Hz and 60 Hz mains configurations.
 - STM32 controller main-loop cadence is now tighter than the legacy ESP32 path, reducing serial command latency and sensor update spacing from 250 ms to 50 ms on the UART controller build.
 - STM32 Lego V3 pressure support is now enabled in board config using the BlackPill default I2C pins (`PB7` SDA, `PB6` SCL), so the controller can instantiate the pressure sensor path instead of treating pressure as unsupported hardware.
+- Pressure capability is now only advertised after the ADS1115 pressure sensor initializes successfully at boot. If pressure-sensor bring-up fails, the controller logs the fault and drops pressure support for that boot instead of reporting a misleading half-working capability set.
 - Display-side volumetric availability no longer depends on `NIGHTLY_BUILD` for the serial controller path. When BLE scale data is unavailable, the display now allows controller-side flow estimation whenever the connected controller reports both `dimming` and `pressure` capabilities.
 
 Known incomplete or risky:

@@ -16,10 +16,11 @@ class PressureSensor {
                    float voltage_floor = 0.5, float voltage_ceil = 4.5);
     ~PressureSensor() = default;
 
-    void setup();
+    bool setup();
     void loop();
     inline float getPressure() const { return _pressure; };
     inline float getRawPressure() const { return _raw_pressure; };
+    inline bool isAvailable() const { return _available; };
     void setScale(float pressure_scale);
 
   private:
@@ -32,6 +33,7 @@ class PressureSensor {
     float _pressure_step;
     int16_t _adc_floor;
     ADS1115 *ads = nullptr;
+    bool _available = false;
     pressure_callback_t _callback;
     xTaskHandle taskHandle;
 

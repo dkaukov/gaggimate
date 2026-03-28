@@ -95,6 +95,10 @@ void GaggiMateController::setup() {
 
     if (_config.capabilites.pressure) {
         pressureSensor = new PressureSensor(_config.pressureSda, _config.pressureScl, [this](float pressure) { /* noop */ });
+        if (!pressureSensor->setup()) {
+            LOG_E(LOG_TAG, "Pressure sensor initialization failed; disabling pressure capability for this boot");
+            _config.capabilites.pressure = false;
+        }
     }
 
     // Create appropriate pump implementation based on platform and capabilities
@@ -162,8 +166,7 @@ void GaggiMateController::setup() {
     this->brewBtn->setup();
     this->steamBtn->setup();
 
-    if (_config.capabilites.pressure) {
-        pressureSensor->setup();
+    if (_config.capabilites.pressure && pressureSensor != nullptr && pressureSensor->isAvailable()) {
         _comm->registerPressureScaleCallback([this](float scale) { this->pressureSensor->setScale(scale); });
     }
 
