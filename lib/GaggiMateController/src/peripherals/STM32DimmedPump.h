@@ -24,6 +24,7 @@
 class STM32DimmedPump : public Pump {
   public:
     enum class ControlMode { POWER, PRESSURE, FLOW };
+    enum class TimerPhase { IDLE, WAIT_FIRE, PULSE_ACTIVE };
 
     /**
      * @brief Construct STM32 Dimmed Pump
@@ -82,6 +83,7 @@ class STM32DimmedPump : public Pump {
     uint32_t _firingDelayMicros; // Delay from zero-cross to fire TRIAC
     volatile bool _pendingFire = false;
     volatile unsigned long _lastZeroCross = 0;
+    volatile TimerPhase _timerPhase = TimerPhase::IDLE;
 
     static constexpr float BASE_FLOW_RATE = 0.25f;
     static constexpr float MAX_PRESSURE = 15.0f;

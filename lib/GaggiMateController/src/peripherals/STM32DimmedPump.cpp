@@ -70,6 +70,7 @@ void STM32DimmedPump::onZeroCross() {
 
     if (_power > 0.0f && _firingDelayMicros < (_halfCycleMicros - TRIAC_PULSE_WIDTH_US)) {
         _pendingFire = true;
+        _timerPhase = TimerPhase::WAIT_FIRE;
         if (_timer != nullptr) {
             _timer->pause();
             _timer->setOverflow(_firingDelayMicros, MICROSEC_FORMAT);
@@ -85,11 +86,21 @@ void STM32DimmedPump::onTimerFire() {
         _timer->pause();
     }
 
-    // Fire the TRIAC with a short pulse
-    digitalWrite(_ssrPin, HIGH);
-    delayMicroseconds(static_cast<unsigned int>(TRIAC_PULSE_WIDTH_US));
+    if (_timerPhase == TimerPhase::WAIT_FIRE) {
+        digitalWrite(_ssrPin, HIGH);
+        _timerPhase = TimerPhase::PULSE_ACTIVE;
+        if (_timer != nullptr) {
+            _timer->setOverflow(TRIAC_PULSE_WIDTH_US, MICROSEC_FORMAT);
+            _timer->setCount(0, MICROSEC_FORMAT);
+            _timer->refresh();
+            _timer->resume();
+        }
+        return;
+    }
+
     digitalWrite(_ssrPin, LOW);
     _pendingFire = false;
+    _timerPhase = TimerPhase::IDLE;
 }
 
 void STM32DimmedPump::timerISR() {
@@ -122,6 +133,7 @@ void STM32DimmedPump::setPower(float setpoint) {
         _currentFlow = 0.0f;
         _firingDelayMicros = _halfCycleMicros; // Max delay = 0% power
         _pendingFire = false;
+        _timerPhase = TimerPhase::IDLE;
         if (_timer != nullptr) {
             _timer->pause();
             _timer->setCount(0, MICROSEC_FORMAT);
