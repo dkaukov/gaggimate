@@ -6,6 +6,7 @@
 
 // Static instance pointer for ISR
 STM32DimmedPump *STM32DimmedPump::_instance = nullptr;
+HardwareTimer *STM32DimmedPump::_timer = nullptr;
 
 STM32DimmedPump::STM32DimmedPump(uint8_t ssrPin, uint8_t zeroCrossPin, PressureSensor *pressureSensor,
                                  uint8_t acFrequency)
@@ -47,9 +48,15 @@ void STM32DimmedPump::setupZeroCrossInterrupt() {
 }
 
 void STM32DimmedPump::setupTimer() {
-    // Note: STM32 timer setup depends on the specific timer used
-    // For now, we'll use a simple micros()-based approach
-    // A more sophisticated implementation would use HardwareTimer
+    if (_timer == nullptr) {
+        _timer = new HardwareTimer(TIM2);
+    }
+
+    _timer->pause();
+    _timer->setOverflow(_halfCycleMicros, MICROSEC_FORMAT);
+    _timer->attachInterrupt(timerISR);
+    _timer->setCount(0, MICROSEC_FORMAT);
+    _timer->refresh();
 }
 
 void STM32DimmedPump::zeroCrossISR() {
@@ -63,10 +70,21 @@ void STM32DimmedPump::onZeroCross() {
 
     if (_power > 0.0f && _firingDelayMicros < (_halfCycleMicros - TRIAC_PULSE_WIDTH_US)) {
         _pendingFire = true;
+        if (_timer != nullptr) {
+            _timer->pause();
+            _timer->setOverflow(_firingDelayMicros, MICROSEC_FORMAT);
+            _timer->setCount(0, MICROSEC_FORMAT);
+            _timer->refresh();
+            _timer->resume();
+        }
     }
 }
 
 void STM32DimmedPump::onTimerFire() {
+    if (_timer != nullptr) {
+        _timer->pause();
+    }
+
     // Fire the TRIAC with a short pulse
     digitalWrite(_ssrPin, HIGH);
     delayMicroseconds(static_cast<unsigned int>(TRIAC_PULSE_WIDTH_US));
@@ -74,15 +92,13 @@ void STM32DimmedPump::onTimerFire() {
     _pendingFire = false;
 }
 
-void STM32DimmedPump::loop() {
-    // Check if we need to fire the TRIAC
-    if (_pendingFire) {
-        unsigned long elapsed = micros() - _lastZeroCross;
-        if (elapsed >= _firingDelayMicros) {
-            onTimerFire();
-        }
+void STM32DimmedPump::timerISR() {
+    if (_instance) {
+        _instance->onTimerFire();
     }
+}
 
+void STM32DimmedPump::loop() {
     // Update pressure reading
     if (_pressureSensor) {
         _currentPressure = _pressureSensor->getRawPressure();
@@ -105,6 +121,13 @@ void STM32DimmedPump::setPower(float setpoint) {
     if (_power == 0.0f) {
         _currentFlow = 0.0f;
         _firingDelayMicros = _halfCycleMicros; // Max delay = 0% power
+        _pendingFire = false;
+        if (_timer != nullptr) {
+            _timer->pause();
+            _timer->setCount(0, MICROSEC_FORMAT);
+            _timer->refresh();
+        }
+        digitalWrite(_ssrPin, LOW);
     } else {
         setFiringDelay(_power);
     }

@@ -6,6 +6,7 @@
 #include "PressureController/PressureController.h"
 #include "PressureSensor.h"
 #include "Pump.h"
+#include <HardwareTimer.h>
 #include <Arduino.h>
 #include <platform/Threading.h>
 
@@ -95,9 +96,11 @@ class STM32DimmedPump : public Pump {
 
     const char *LOG_TAG = "STM32DimmedPump";
     static void loopTask(void *arg);
+    static void timerISR();
 
     // Static instance pointer for ISR access
     static STM32DimmedPump *_instance;
+    static HardwareTimer *_timer;
     static void zeroCrossISR();
 };
 
