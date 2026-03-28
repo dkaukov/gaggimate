@@ -46,7 +46,7 @@ class Max6675Thermocouple : public TemperatureSensor {
     temperature_error_callback_t error_callback;
 
     const char *LOG_TAG = "Max6675Thermocouple";
-    static void monitorTask(void *arg);
+    [[noreturn]] static void monitorTask(void *arg);
 };
 
 #endif // !ESP32
