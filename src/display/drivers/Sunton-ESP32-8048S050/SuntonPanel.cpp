@@ -29,6 +29,7 @@ bool SuntonPanel::begin(SuntonPanel_Color_Order order) {
     _order = order;
 
     // Setup backlight PWM
+    log_i("Initializing backlight PWM...");
     ledcSetup(SUNTON_PWM_CHANNEL, SUNTON_PWM_FREQ, SUNTON_PWM_RESOLUTION);
     ledcAttachPin(SUNTON_BOARD_TFT_BL, SUNTON_PWM_CHANNEL);
 
