@@ -71,9 +71,10 @@ bool SuntonPanel::installSD() {
 void SuntonPanel::uninstallSD() { SD_MMC.end(); }
 
 void SuntonPanel::setBrightness(uint8_t value) {
-    value = constrain(value, 0, SUNTON_BACKLIGHT_MAX);
+    value = constrain(value, 0, 16);
+    const uint8_t pwmValue = value == 0 ? 0 : map(value, 1, 16, SUNTON_BACKLIGHT_MIN, SUNTON_BACKLIGHT_MAX);
     _brightness = value;
-    ledcWrite(SUNTON_PWM_CHANNEL, _brightness);
+    ledcWrite(SUNTON_PWM_CHANNEL, pwmValue);
 }
 
 uint8_t SuntonPanel::getBrightness() const { return _brightness; }
