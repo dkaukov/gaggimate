@@ -1,5 +1,7 @@
 #include "SerialCommClient.h"
 
+#if !defined(DISPLAY_CONTROLLER_BLE_ONLY)
+
 SerialCommClient::SerialCommClient(HardwareSerial &serial, uint32_t baudRate, int8_t rxPin, int8_t txPin)
     : _serial(serial), _baudRate(baudRate), _rxPin(rxPin), _txPin(txPin) {}
 
@@ -276,3 +278,5 @@ void SerialCommClient::registerVolumetricMeasurementCallback(const comm_float_ca
 void SerialCommClient::registerTofMeasurementCallback(const comm_int_callback_t &callback) {
     _tofMeasurementCallback = callback;
 }
+
+#endif // !DISPLAY_CONTROLLER_BLE_ONLY

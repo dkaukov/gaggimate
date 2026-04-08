@@ -10,6 +10,8 @@
  * Implements the client side of serial communication for the ESP32 display.
  * Uses the serial protocol defined in SerialProtocol.h.
  */
+#if !defined(DISPLAY_CONTROLLER_BLE_ONLY)
+
 class SerialCommClient : public ICommClient {
   public:
     /**
@@ -84,5 +86,7 @@ class SerialCommClient : public ICommClient {
 
     const char *LOG_TAG = "SerialCommClient";
 };
+
+#endif // !DISPLAY_CONTROLLER_BLE_ONLY
 
 #endif // SERIALCOMMCLIENT_H

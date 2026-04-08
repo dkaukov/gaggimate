@@ -1,6 +1,7 @@
 #include "WebUIPlugin.h"
 #include <DNSServer.h>
 #include <SPIFFS.h>
+#include <NimBLEClientController.h>
 #include <display/core/Controller.h>
 #include <display/core/ProfileManager.h>
 #include <display/core/process/BrewProcess.h>

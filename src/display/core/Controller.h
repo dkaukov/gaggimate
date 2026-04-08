@@ -2,6 +2,7 @@
 #define CONTROLLER_H
 
 #include "CommInterface.h"
+#include "NimBLEComm.h"
 #include "PluginManager.h"
 #include "Settings.h"
 #include <WiFi.h>
@@ -12,8 +13,7 @@
 #include <display/ui/default/DefaultUI.h>
 #endif
 
-// Include BLE-specific headers for getClientController() backward compatibility
-#include "BLECommClient.h"
+class NimBLEClientController;
 
 const IPAddress WIFI_AP_IP(4, 4, 4, 1); // the IP address the web server, Samsung requires the IP to be in public space
 const IPAddress WIFI_SUBNET_MASK(255, 255, 255, 0); // no need to change: https://avinetworks.com/glossary/subnet-mask/

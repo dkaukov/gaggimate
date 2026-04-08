@@ -3,7 +3,7 @@
 
 #include "CommInterface.h"
 
-#ifdef ESP32
+#if defined(ESP32) && !defined(DISPLAY_CONTROLLER_SERIAL_ONLY)
 
 #include "NimBLEClientController.h"
 
@@ -57,6 +57,6 @@ class BLECommClient : public ICommClient {
     NimBLEClientController _ble;
 };
 
-#endif // ESP32
+#endif // ESP32 && !DISPLAY_CONTROLLER_SERIAL_ONLY
 
 #endif // BLECOMMCLIENT_H

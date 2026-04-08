@@ -1,5 +1,6 @@
 #include "DefaultUI.h"
 
+#include <NimBLEClientController.h>
 #include <WiFi.h>
 #include <display/config.h>
 #include <display/core/Controller.h>

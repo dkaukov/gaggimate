@@ -1,6 +1,6 @@
 #include "BLECommClient.h"
 
-#ifdef ESP32
+#if defined(ESP32) && !defined(DISPLAY_CONTROLLER_SERIAL_ONLY)
 
 BLECommClient::BLECommClient() {}
 
@@ -71,4 +71,4 @@ void BLECommClient::registerTofMeasurementCallback(const comm_int_callback_t &ca
     _ble.registerTofMeasurementCallback(callback);
 }
 
-#endif // ESP32
+#endif // ESP32 && !DISPLAY_CONTROLLER_SERIAL_ONLY

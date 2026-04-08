@@ -24,8 +24,12 @@
 #include <display/plugins/mDNSPlugin.h>
 
 // Communication implementations
+#if !defined(DISPLAY_CONTROLLER_SERIAL_ONLY)
 #include <BLECommClient.h>
+#endif
+#if !defined(DISPLAY_CONTROLLER_BLE_ONLY)
 #include <SerialCommClient.h>
+#endif
 
 #ifndef GAGGIMATE_HEADLESS
 #include <display/drivers/AmoledDisplayDriver.h>
@@ -155,23 +159,27 @@ void Controller::setupPanel() {
 #endif
 
 void Controller::setupCommunication() {
-    // Create communication client based on settings
+#if defined(DISPLAY_CONTROLLER_SERIAL_ONLY)
+    ESP_LOGI(LOG_TAG, "Using Serial communication mode");
+    commClient =
+        new SerialCommClient(Serial1, settings.getSerialBaudRate(), settings.getSerialRxPin(), settings.getSerialTxPin());
+    ownCommClient = true;
+#elif defined(DISPLAY_CONTROLLER_BLE_ONLY)
+    ESP_LOGI(LOG_TAG, "Using BLE communication mode");
+    commClient = new BLECommClient();
+    ownCommClient = true;
+#else
+    // Fallback for mixed-capability builds.
     if (settings.getCommMode() == COMM_MODE_SERIAL) {
-        // Serial communication mode
         ESP_LOGI(LOG_TAG, "Using Serial communication mode");
-        int rxPin = settings.getSerialRxPin();
-        int txPin = settings.getSerialTxPin();
-        int baudRate = settings.getSerialBaudRate();
-
-        // Use Serial1 for communication (configurable pins)
-        commClient = new SerialCommClient(Serial1, baudRate, rxPin, txPin);
-        ownCommClient = true;
+        commClient = new SerialCommClient(Serial1, settings.getSerialBaudRate(), settings.getSerialRxPin(),
+                                          settings.getSerialTxPin());
     } else {
-        // BLE communication mode (default)
         ESP_LOGI(LOG_TAG, "Using BLE communication mode");
         commClient = new BLECommClient();
-        ownCommClient = true;
     }
+    ownCommClient = true;
+#endif
 
     // Initialize the communication client
     commClient->init();
@@ -832,6 +840,9 @@ void Controller::handleProfileUpdate() {
 }
 
 NimBLEClientController *Controller::getClientController() {
+#if defined(DISPLAY_CONTROLLER_SERIAL_ONLY)
+    return nullptr;
+#else
     // For backward compatibility, return the BLE controller if using BLE mode
     if (settings.getCommMode() == COMM_MODE_BLE && commClient) {
         // Use static_cast since we know the type based on commMode
@@ -839,6 +850,7 @@ NimBLEClientController *Controller::getClientController() {
         return bleClient->getBLEController();
     }
     return nullptr;
+#endif
 }
 
 void Controller::loopTask(void *arg) {
