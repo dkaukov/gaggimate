@@ -118,11 +118,11 @@ class Settings {
     bool isAutoWakeupEnabled() const { return autowakeupEnabled; }
     std::vector<AutoWakeupSchedule> getAutoWakeupSchedules() const { return autowakeupSchedules; }
 
-    // Communication settings (BLE or Serial)
-    int getCommMode() const { return commMode; }
-    int getSerialRxPin() const { return serialRxPin; }
-    int getSerialTxPin() const { return serialTxPin; }
-    int getSerialBaudRate() const { return serialBaudRate; }
+    // Display-controller transport is build-time configuration, not mutable user settings.
+    int getCommMode() const { return DISPLAY_CONTROLLER_COMM_MODE; }
+    int getSerialRxPin() const { return DISPLAY_CONTROLLER_SERIAL_RX_PIN; }
+    int getSerialTxPin() const { return DISPLAY_CONTROLLER_SERIAL_TX_PIN; }
+    int getSerialBaudRate() const { return DISPLAY_CONTROLLER_SERIAL_BAUD_RATE; }
     void setTargetBrewTemp(int target_brew_temp);
     void setTargetSteamTemp(int target_steam_temp);
     void setTargetWaterTemp(int target_water_temp);
@@ -188,10 +188,6 @@ class Settings {
     void setAltRelayFunction(int alt_relay_function);
     void setAutoWakeupEnabled(bool enabled);
     void setAutoWakeupSchedules(const std::vector<AutoWakeupSchedule> &schedules);
-    void setCommMode(int comm_mode);
-    void setSerialRxPin(int rx_pin);
-    void setSerialTxPin(int tx_pin);
-    void setSerialBaudRate(int baud_rate);
 
   private:
     Preferences preferences;
@@ -267,12 +263,6 @@ class Settings {
     int emptyTankDistance = 200;
     int fullTankDistance = 50;
     int altRelayFunction = ALT_RELAY_GRIND; // Default to grind
-
-    // Communication settings
-    int commMode = 0;             // 0 = BLE (default), 1 = Serial
-    int serialRxPin = -1;         // Serial RX GPIO pin (-1 = default)
-    int serialTxPin = -1;         // Serial TX GPIO pin (-1 = default)
-    int serialBaudRate = 115200;  // Serial baud rate
 
     void doSave();
     xTaskHandle taskHandle;

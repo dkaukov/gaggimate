@@ -443,8 +443,6 @@ void WebUIPlugin::handleProfileRequest(uint32_t clientId, JsonDocument &request)
 void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     if (request->method() == HTTP_POST) {
         controller->getSettings().batchUpdate([request](Settings *settings) {
-            auto isValidSerialPin = [](int pin) { return pin == -1 || (pin >= 0 && pin <= 48); };
-
             if (request->hasArg("startupMode"))
                 settings->setStartupMode(request->arg("startupMode") == "brew" ? MODE_BREW : MODE_STANDBY);
             if (request->hasArg("targetSteamTemp"))
@@ -463,28 +461,6 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
                 settings->setWifiSsid(request->arg("wifiSsid"));
             if (request->hasArg("mdnsName"))
                 settings->setMdnsName(request->arg("mdnsName"));
-            if (request->hasArg("commMode")) {
-                int commMode = request->arg("commMode").toInt();
-                settings->setCommMode(commMode == COMM_MODE_SERIAL ? COMM_MODE_SERIAL : COMM_MODE_BLE);
-            }
-            if (request->hasArg("serialRxPin")) {
-                int serialRxPin = request->arg("serialRxPin").toInt();
-                if (isValidSerialPin(serialRxPin)) {
-                    settings->setSerialRxPin(serialRxPin);
-                }
-            }
-            if (request->hasArg("serialTxPin")) {
-                int serialTxPin = request->arg("serialTxPin").toInt();
-                if (isValidSerialPin(serialTxPin)) {
-                    settings->setSerialTxPin(serialTxPin);
-                }
-            }
-            if (request->hasArg("serialBaudRate")) {
-                int baudRate = request->arg("serialBaudRate").toInt();
-                if (baudRate >= 1200 && baudRate <= 2000000) {
-                    settings->setSerialBaudRate(baudRate);
-                }
-            }
             if (request->hasArg("wifiPassword") && request->arg("wifiPassword") != "---unchanged---")
                 settings->setWifiPassword(request->arg("wifiPassword"));
             settings->setHomekit(request->hasArg("homekit"));
@@ -616,10 +592,6 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["wifiSsid"] = settings.getWifiSsid();
     doc["wifiPassword"] = apMode ? "---unchanged---" : settings.getWifiPassword();
     doc["mdnsName"] = settings.getMdnsName();
-    doc["commMode"] = settings.getCommMode();
-    doc["serialRxPin"] = settings.getSerialRxPin();
-    doc["serialTxPin"] = settings.getSerialTxPin();
-    doc["serialBaudRate"] = settings.getSerialBaudRate();
     doc["temperatureOffset"] = String(settings.getTemperatureOffset());
     doc["pressureScaling"] = String(settings.getPressureScaling());
     doc["boilerFillActive"] = settings.isBoilerFillActive();
