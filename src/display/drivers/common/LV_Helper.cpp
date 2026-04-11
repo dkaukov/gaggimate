@@ -8,6 +8,7 @@
  *
  */
 #include "LV_Helper.h"
+#include <esp_heap_caps.h>
 
 #if LV_VERSION_CHECK(9, 0, 0)
 #error "Currently not supported 9.x"
@@ -110,16 +111,35 @@ void beginLvglHelper(Display &board, bool debug) {
     }
 #endif
 
-    size_t lv_buffer_size = board.width() * board.height() * sizeof(lv_color_t);
-    buf = (lv_color_t *)ps_malloc(lv_buffer_size);
+    const size_t full_frame_size = static_cast<size_t>(board.width()) * static_cast<size_t>(board.height()) * sizeof(lv_color_t);
+    size_t lv_buffer_size = board.getPreferredDrawBufferSize();
+    if (lv_buffer_size == 0 || lv_buffer_size > full_frame_size) {
+        lv_buffer_size = full_frame_size;
+    }
+    const uint32_t pixel_count = lv_buffer_size / sizeof(lv_color_t);
+    assert(pixel_count > 0);
+
+    if (board.preferInternalDrawBuffer()) {
+        buf = static_cast<lv_color_t *>(heap_caps_malloc(lv_buffer_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    }
+    if (!buf) {
+        buf = static_cast<lv_color_t *>(ps_malloc(lv_buffer_size));
+    }
     assert(buf);
 
-    if (!board.supportsDirectMode()) {
-        buf1 = (lv_color_t *)ps_malloc(lv_buffer_size);
+    if (!board.supportsDirectMode() && board.preferDoubleDrawBuffer()) {
+        if (board.preferInternalDrawBuffer()) {
+            buf1 = static_cast<lv_color_t *>(heap_caps_malloc(lv_buffer_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        }
+        if (!buf1) {
+            buf1 = static_cast<lv_color_t *>(ps_malloc(lv_buffer_size));
+        }
         assert(buf1);
+    } else {
+        buf1 = NULL;
     }
 
-    lv_disp_draw_buf_init(&draw_buf, buf, buf1, board.width() * board.height());
+    lv_disp_draw_buf_init(&draw_buf, buf, buf1, pixel_count);
 
     /*Initialize the display*/
     lv_disp_drv_init(&disp_drv);

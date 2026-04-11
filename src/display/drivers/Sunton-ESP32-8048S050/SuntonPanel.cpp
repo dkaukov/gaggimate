@@ -149,13 +149,12 @@ void SuntonPanel::initBUS() {
                 .pclk_hz = SUNTON_RGB_TIMING_FREQ_HZ,
                 .h_res = SUNTON_BOARD_TFT_WIDTH,
                 .v_res = SUNTON_BOARD_TFT_HEIGHT,
-                // Timing parameters for 800x480 panel
-                .hsync_pulse_width = 4,
-                .hsync_back_porch = 8,
-                .hsync_front_porch = 8,
-                .vsync_pulse_width = 4,
-                .vsync_back_porch = 8,
-                .vsync_front_porch = 8,
+                .hsync_pulse_width = SUNTON_RGB_HSYNC_PULSE_WIDTH,
+                .hsync_back_porch = SUNTON_RGB_HSYNC_BACK_PORCH,
+                .hsync_front_porch = SUNTON_RGB_HSYNC_FRONT_PORCH,
+                .vsync_pulse_width = SUNTON_RGB_VSYNC_PULSE_WIDTH,
+                .vsync_back_porch = SUNTON_RGB_VSYNC_BACK_PORCH,
+                .vsync_front_porch = SUNTON_RGB_VSYNC_FRONT_PORCH,
                 .flags =
                     {
                         .pclk_active_neg = 1,

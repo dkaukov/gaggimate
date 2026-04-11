@@ -18,6 +18,7 @@
 
 #include <display/drivers/common/Display.h>
 #include <display/drivers/common/ext.h>
+#include "utilities.h"
 
 enum SuntonPanel_TouchType {
     SUNTON_TOUCH_UNKNOWN,
@@ -62,6 +63,9 @@ class SuntonPanel : public Display {
     void pushColors(uint16_t x, uint16_t y, uint16_t width, uint16_t hight, uint16_t *data) override;
 
     bool supportsDirectMode() override { return false; }
+    size_t getPreferredDrawBufferSize() override { return static_cast<size_t>(SUNTON_BOARD_TFT_WIDTH) * 40 * sizeof(uint16_t); }
+    bool preferInternalDrawBuffer() override { return true; }
+    bool preferDoubleDrawBuffer() override { return false; }
 
   private:
     void initBUS();

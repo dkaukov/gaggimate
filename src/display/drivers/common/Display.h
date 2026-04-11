@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 class Display {
@@ -12,6 +13,9 @@ class Display {
     virtual uint16_t height() = 0;
     virtual uint8_t getPoint(int16_t *x, int16_t *y, uint8_t get_point) = 0;
     virtual bool supportsDirectMode() = 0;
+    virtual size_t getPreferredDrawBufferSize() { return static_cast<size_t>(width()) * static_cast<size_t>(height()) * sizeof(uint16_t); }
+    virtual bool preferInternalDrawBuffer() { return false; }
+    virtual bool preferDoubleDrawBuffer() { return !supportsDirectMode(); }
 
   protected:
     uint8_t _rotation;
