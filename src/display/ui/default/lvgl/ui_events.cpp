@@ -62,8 +62,9 @@ void onSteamScreen(lv_event_t *e) {
 }
 
 void onWakeup(lv_event_t *e) {
-    if (controller.isUpdating() || controller.isErrorState() || controller.isAutotuning() ||
-        !controller.getClientController()->isConnected()) {
+    ICommClient *comm = controller.getCommClient();
+    if (controller.isUpdating() || controller.isErrorState() || controller.isAutotuning() || comm == nullptr ||
+        !comm->isConnected()) {
         return;
     }
     controller.getUI()->changeScreen(&ui_BrewScreen, &ui_BrewScreen_screen_init);

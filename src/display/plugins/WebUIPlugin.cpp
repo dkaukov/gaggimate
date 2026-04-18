@@ -115,8 +115,11 @@ void WebUIPlugin::loop() {
         doc["gt"] = controller->isVolumetricAvailable() && controller->getSettings().isVolumetricTarget() ? 1 : 0;
         doc["gact"] = controller->isGrindActive() ? 1 : 0;
         doc["rssi"] = 0;
-        if (controller->getClientController()->getClient()->isConnected()) {
-            doc["rssi"] = controller->getClientController()->getClient()->getRssi();
+        if (NimBLEClientController *bleClient = controller->getClientController(); bleClient != nullptr) {
+            NimBLEClient *ble = bleClient->getClient();
+            if (ble != nullptr && ble->isConnected()) {
+                doc["rssi"] = ble->getRssi();
+            }
         }
 
         bool bleConnected = BLEScales.isConnected();
