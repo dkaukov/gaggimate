@@ -774,6 +774,12 @@ void Controller::onFlush() {
     pluginManager->trigger("controller:brew:start");
 }
 
+void Controller::onVolumetricDelete() {
+    if (profileManager->getSelectedProfile().isVolumetric()) {
+        profileManager->getSelectedProfile().removeVolumetricTarget();
+    }
+}
+
 void Controller::handleBrewButton(int brewButtonStatus) {
     printf("current screen %d, brew button %d\n", getMode(), brewButtonStatus);
     if (brewButtonStatus) {

@@ -5,6 +5,7 @@
 
 #include "../../../main.h"
 #include "../../../plugins/BLEScalePlugin.h"
+#include "NimBLEClientController.h"
 #include "ui.h"
 #include <Arduino.h>
 
