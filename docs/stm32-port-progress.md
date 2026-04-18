@@ -8,6 +8,8 @@ Target: STM32 BlackPill F411CE controller for Gaggiuino Lego V3, using serial co
 Working now:
 - `controller-stm32-gaggiuino-lego-v3` builds successfully.
 - `display-sunton43` builds successfully.
+- `gaggiuino-display-sunton5` and `gaggiuino-display-sunton43` now share the same LVGL draw-buffer strategy for Sunton panels (single draw buffer, internal RAM, ~20-line chunk), which resolved recent display sync instability observed during small frequent UI updates.
+- Sunton-target LVGL heap allocation is now routed to internal RAM (`SUNTON5_DISPLAY` / `SUNTON43_DISPLAY`) instead of PSRAM in `lv_conf.h`, reducing allocator-related jitter during active redraw.
 - STM32 entrypoint, board config, serial transport, heater path, valve path, alt relay path, button path, and MAX6675 thermocouple path are wired.
 - Serial display handshake was hardened in commit `096301b6 fix: harden serial display handshake`.
 - `STM32DimmedPump` now follows the original ESP32 `PSM` model again: zero-cross driven burst-fire / cycle-skipping across full AC cycles, rather than delayed phase-angle firing inside each half-cycle.
@@ -41,6 +43,7 @@ Known incomplete or risky:
 - STM32 pressure support is enabled in software, but the real sensor wiring, calibration, and pressure-to-volumetric behavior still need hardware validation on an actual Lego V3 machine.
 - `detectAddon()` is still a TODO.
 - STM32 I2C addon path uses generic `Wire.begin()` only; pin mapping and electrical behavior are not verified.
+- Sunton 4.3 timing still uses `SUNTON43_RGB_TIMING_FREQ_HZ = 16MHz`; if residual whole-frame horizontal phase nudge is still visible on some panels, timing A/B (for example 14MHz vs 16MHz plus porch/polarity profile checks) remains open.
 
 ## Priority Plan
 ### 1. Validate pump dimming on real hardware
