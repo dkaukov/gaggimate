@@ -62,6 +62,9 @@ class Sunton43Panel : public Display {
     void pushColors(uint16_t x, uint16_t y, uint16_t width, uint16_t hight, uint16_t *data) override;
 
     bool supportsDirectMode() override { return false; }
+    size_t getPreferredDrawBufferSize() override { return static_cast<size_t>(width()) * 20 * sizeof(uint16_t); }
+    bool preferInternalDrawBuffer() override { return true; }
+    bool preferDoubleDrawBuffer() override { return false; }
 
   private:
     void initBUS();

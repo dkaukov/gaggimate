@@ -60,10 +60,17 @@
     #endif
 
 #else       /*LV_MEM_CUSTOM*/
-    #define LV_MEM_CUSTOM_INCLUDE <esp32-hal-psram.h>//<stdlib.h>   /*Header for the dynamic memory function*/
-    #define LV_MEM_CUSTOM_ALLOC   ps_malloc
-    #define LV_MEM_CUSTOM_FREE    free
-    #define LV_MEM_CUSTOM_REALLOC ps_realloc
+    #if defined(SUNTON5_DISPLAY) || defined(SUNTON43_DISPLAY)
+        #define LV_MEM_CUSTOM_INCLUDE <esp_heap_caps.h>
+        #define LV_MEM_CUSTOM_ALLOC(size)            heap_caps_malloc((size), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+        #define LV_MEM_CUSTOM_FREE(ptr)              heap_caps_free((ptr))
+        #define LV_MEM_CUSTOM_REALLOC(ptr, new_size) heap_caps_realloc((ptr), (new_size), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+    #else
+        #define LV_MEM_CUSTOM_INCLUDE <esp32-hal-psram.h>//<stdlib.h>   /*Header for the dynamic memory function*/
+        #define LV_MEM_CUSTOM_ALLOC   ps_malloc
+        #define LV_MEM_CUSTOM_FREE    free
+        #define LV_MEM_CUSTOM_REALLOC ps_realloc
+    #endif
 #endif     /*LV_MEM_CUSTOM*/
 
 /*Number of the intermediate memory buffer used during rendering and other internal processing mechanisms.
@@ -782,8 +789,6 @@
 #endif /*LV_CONF_H*/
 
 #endif /*End of "Content enable"*/
-
-
 
 
 
