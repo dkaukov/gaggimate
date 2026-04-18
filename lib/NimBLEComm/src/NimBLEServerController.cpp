@@ -1,4 +1,5 @@
 #include "NimBLEServerController.h"
+#include <cstdio>
 
 NimBLEServerController::NimBLEServerController() {}
 
@@ -9,11 +10,11 @@ void NimBLEServerController::initServer(const String infoString) {
     NimBLEDevice::setMTU(128);
 
     // Create BLE Server
-    NimBLEServer *pServer = NimBLEDevice::createServer();
-    pServer->setCallbacks(this); // Use this class as the callback handler
+    server = NimBLEDevice::createServer();
+    server->setCallbacks(this); // Use this class as the callback handler
 
     // Create BLE Service
-    NimBLEService *pService = pServer->createService(SERVICE_UUID);
+    NimBLEService *pService = server->createService(SERVICE_UUID);
 
     // Output Control Characteristic (Client writes setpoints)
     outputControlChar = pService->createCharacteristic(OUTPUT_CONTROL_UUID, NIMBLE_PROPERTY::WRITE);
@@ -69,32 +70,38 @@ void NimBLEServerController::initServer(const String infoString) {
 
     pService->start();
 
-    ota_dfu_ble.configure_OTA(pServer);
+    ota_dfu_ble.configure_OTA(server);
     ota_dfu_ble.start_OTA();
 
-    NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
-    NimBLEDevice::startAdvertising();
+    advertising = NimBLEDevice::getAdvertising();
+    advertising->addServiceUUID(SERVICE_UUID);
+    advertising->setScanResponse(true);
+    advertising->start();
     ESP_LOGI(LOG_TAG, "BLE Server started, advertising...\n");
+    xTaskCreate(loopTask, "NimBLEServerController::loop", configMINIMAL_STACK_SIZE * 4, this, 1, &taskHandle);
+}
+
+void NimBLEServerController::loop() {
+    if (server->getConnectedCount() == 0 && !advertising->isAdvertising()) {
+        advertising->stop();
+        advertising->start();
+    }
 }
 
 void NimBLEServerController::sendSensorData(float temperature, float pressure, float puckFlow, float pumpFlow,
                                             float puckResistance) {
     if (deviceConnected && sensorChar != nullptr) {
-        char str[30];
-        snprintf(str, sizeof(str), "%.3f,%.3f,%.3f,%.3f,%.3f", temperature, pressure, puckFlow, pumpFlow, puckResistance);
-        sensorChar->setValue(str);
+        snprintf(sensorDataBuffer, sizeof(sensorDataBuffer), "%.3f,%.3f,%.3f,%.3f,%.3f", temperature, pressure, puckFlow,
+                 pumpFlow, puckResistance);
+        sensorChar->setValue(sensorDataBuffer);
         sensorChar->notify();
     }
 }
 
 void NimBLEServerController::sendError(int errorCode) {
     if (deviceConnected) {
-        // Send temperature notification to the client
-        char errorStr[8];
-        snprintf(errorStr, sizeof(errorStr), "%d", errorCode);
-        errorChar->setValue(errorStr);
+        snprintf(errorBuffer, sizeof(errorBuffer), "%d", errorCode);
+        errorChar->setValue(errorBuffer);
         errorChar->notify();
     }
 }
@@ -102,9 +109,8 @@ void NimBLEServerController::sendError(int errorCode) {
 void NimBLEServerController::sendBrewBtnState(bool brewButtonStatus) {
     if (deviceConnected) {
         // Send brew notification to the client
-        char brewStr[8];
-        snprintf(brewStr, sizeof(brewStr), "%d", brewButtonStatus);
-        brewBtnChar->setValue(brewStr);
+        snprintf(brewBtnBuffer, sizeof(brewBtnBuffer), "%d", static_cast<int>(brewButtonStatus));
+        brewBtnChar->setValue(brewBtnBuffer);
         brewBtnChar->notify();
     }
 }
@@ -112,37 +118,33 @@ void NimBLEServerController::sendBrewBtnState(bool brewButtonStatus) {
 void NimBLEServerController::sendSteamBtnState(bool steamButtonStatus) {
     if (deviceConnected) {
         // Send steam notification to the client
-        char steamStr[8];
-        snprintf(steamStr, sizeof(steamStr), "%d", steamButtonStatus);
-        steamBtnChar->setValue(steamStr);
+        snprintf(steamBtnBuffer, sizeof(steamBtnBuffer), "%d", static_cast<int>(steamButtonStatus));
+        steamBtnChar->setValue(steamBtnBuffer);
         steamBtnChar->notify();
     }
 }
 
 void NimBLEServerController::sendAutotuneResult(float Kp, float Ki, float Kd) {
     if (deviceConnected) {
-        char pidStr[64];
         // Send with default Kf=0.0 (disabled)
-        snprintf(pidStr, sizeof(pidStr), "%.3f,%.3f,%.3f,0.0", Kp, Ki, Kd);
-        autotuneResultChar->setValue(pidStr);
+        snprintf(autotuneResultBuffer, sizeof(autotuneResultBuffer), "%.3f,%.3f,%.3f,0.0", Kp, Ki, Kd);
+        autotuneResultChar->setValue(autotuneResultBuffer);
         autotuneResultChar->notify();
     }
 }
 
 void NimBLEServerController::sendVolumetricMeasurement(float value) {
     if (deviceConnected) {
-        char data[8];
-        snprintf(data, sizeof(data), "%.2f", value);
-        volumetricMeasurementChar->setValue(data);
+        snprintf(volumetricBuffer, sizeof(volumetricBuffer), "%.2f", value);
+        volumetricMeasurementChar->setValue(volumetricBuffer);
         volumetricMeasurementChar->notify();
     }
 }
 
 void NimBLEServerController::sendTofMeasurement(int value) {
     if (deviceConnected) {
-        char data[8];
-        snprintf(data, sizeof(data), "%d", value);
-        tofMeasurementChar->setValue(data);
+        snprintf(tofBuffer, sizeof(tofBuffer), "%d", value);
+        tofMeasurementChar->setValue(tofBuffer);
         tofMeasurementChar->notify();
     }
 }
@@ -237,19 +239,18 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
         float Kp = get_token(pid, 0, ',').toFloat();
         float Ki = get_token(pid, 1, ',').toFloat();
         float Kd = get_token(pid, 2, ',').toFloat();
-        
+
         // Optional thermal feedforward parameter (default value if not provided)
-        float Kf = 0.0f;    // Default combined feedforward gain
-        
+        float Kf = 0.0f; // Default combined feedforward gain
+
         String kfToken = get_token(pid, 3, ',');
-        
+
         if (kfToken.length() > 0 && kfToken.toFloat() > 0.0f) {
             Kf = kfToken.toFloat();
         }
-        
+
         ESP_LOGI(LOG_TAG, "BLE received PID string: '%s'", pid.c_str());
-        ESP_LOGI(LOG_TAG, "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f (combined)", 
-                 Kp, Ki, Kd, Kf);
+        ESP_LOGI(LOG_TAG, "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f (combined)", Kp, Ki, Kd, Kf);
         if (pidControlCallback != nullptr) {
             pidControlCallback(Kp, Ki, Kd, Kf);
         }
@@ -284,5 +285,14 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
             ledControlCallback(channel, brightness);
             ESP_LOGV(LOG_TAG, "Received led control, %d: %d", channel, brightness);
         }
+    }
+}
+
+void NimBLEServerController::loopTask(void *arg) {
+    TickType_t lastWake = xTaskGetTickCount();
+    auto *controller = static_cast<NimBLEServerController *>(arg);
+    while (true) {
+        controller->loop();
+        xTaskDelayUntil(&lastWake, pdMS_TO_TICKS(5000));
     }
 }

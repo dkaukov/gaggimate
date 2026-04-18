@@ -47,7 +47,7 @@ bool PressureSensor::setup() {
     ads->setDataRate(4);
     ads->setMode(0);
     ads->readADC(0);
-    xTaskCreate(loopTask, "Heater::loop", configMINIMAL_STACK_SIZE * 4, this, 1, &taskHandle);
+    xTaskCreate(loopTask, "PressureSensor::loop", configMINIMAL_STACK_SIZE * 4, this, 1, &taskHandle);
     return true;
 }
 
