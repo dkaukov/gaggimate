@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <numeric>
+#include <platform/Logger.h>
 
 SimplePID::SimplePID(float *controlerOutputPtr, float *sensorOutputPtr, float *setpointTargetPtr) {
     this->controlerOutput = controlerOutputPtr;
@@ -47,7 +48,7 @@ bool SimplePID::update() {
     if (isDisturbanceFeedForwardActive)
         DistFFOut = currentDisturbance * gainDistFF;
 
-    ESP_LOGV("SimplePID", "%.2f\t %.2f\t %.2f\t %.2f\n", *setpointTarget, setpointFiltered, setpointDerivative, *sensorOutput);
+    LOG_V("SimplePID", "%.2f\t %.2f\t %.2f\t %.2f", *setpointTarget, setpointFiltered, setpointDerivative, *sensorOutput);
 
     float deltaTime = 1.0f / ctrl_freq_sampling; // Time step in seconds
 
